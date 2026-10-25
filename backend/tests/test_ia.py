@@ -50,5 +50,17 @@ class TestIA(unittest.TestCase):
             mem.db.close()
 
 
+class TestVoz(unittest.TestCase):
+    def test_escolhe_azure(self):
+        from app.voz import AzureVoz, voz_do_ambiente
+        v = voz_do_ambiente(None, {"AZURE_SPEECH_KEY": "k", "AZURE_SPEECH_REGION": "brazilsouth"})
+        self.assertIsInstance(v, AzureVoz)
+        self.assertIn("brazilsouth.tts.speech.microsoft.com", v.url)
+
+    def test_sem_nada(self):
+        from app.voz import voz_do_ambiente
+        self.assertIsNone(voz_do_ambiente(None, {}))
+
+
 if __name__ == "__main__":
     unittest.main()

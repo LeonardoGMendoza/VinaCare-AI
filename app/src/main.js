@@ -83,11 +83,21 @@ async function sayNuvem(text){
   setTimeout(() => { $('sub').textContent = ''; }, buf.duration * 1000 + 600);
 }
 let nuvemFalhou = false;
+// iPhone/iPad: o Safari só libera vozes robóticas para sites, então usa a voz da nuvem.
+// Android e computador: usam a voz do aparelho quando ela é boa (economiza a cota da nuvem).
+const ehIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function precisaNuvem(){
+  if (ehIOS) return true;
+  if (!('speechSynthesis' in window)) return true;
+  const vs = (speechSynthesis.getVoices() || []).filter(v => /^pt/i.test(v.lang));
+  const melhor = vs.reduce((m, v) => Math.max(m, vozNota(v)), -999);
+  return melhor < 100;
+}
 async function say(text){
   text = (text || '').trim();
   if (!text || !head || loading) return;
   try { head.audioCtx.resume(); } catch {}
-  if (API && !nuvemFalhou){
+  if (API && !nuvemFalhou && precisaNuvem()){
     try { head.stopSpeaking(); } catch {}
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     $('sub').textContent = text;

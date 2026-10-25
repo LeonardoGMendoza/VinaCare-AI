@@ -60,7 +60,53 @@ class OracleVoz:
         return audio
 
 
-def voz_do_ambiente(chat):
+class AzureVoz:
+    """Voz neural da Microsoft Azure (pt-BR) pela API REST, sem SDK extra."""
+
+    def __init__(self, chave, regiao, voz="pt-BR-FranciscaNeural"):
+        self.chave, self.regiao, self.voz = chave, regiao, voz
+        self.url = f"https://{regiao}.tts.speech.microsoft.com/cognitiveservices/v1"
+        self._cache, self._cache_max = OrderedDict(), 128
+
+    def vozes(self):
+        import json
+        import urllib.request
+        req = urllib.request.Request(f"https://{self.regiao}.tts.speech.microsoft.com/cognitiveservices/voices/list",
+                                     headers={"Ocp-Apim-Subscription-Key": self.chave})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            todas = json.loads(r.read().decode("utf-8"))
+        return [{"nome": v.get("ShortName"), "genero": v.get("Gender")} for v in todas if v.get("Locale") == "pt-BR"]
+
+    def __call__(self, texto):
+        import urllib.request
+        from xml.sax.saxutils import escape
+        texto = (texto or "").strip()[:600]
+        if texto in self._cache:
+            self._cache.move_to_end(texto)
+            return self._cache[texto]
+        ssml = (f'<speak version="1.0" xml:lang="pt-BR"><voice name="{self.voz}">'
+                f'<prosody rate="-8%">{escape(texto)}</prosody></voice></speak>')
+        req = urllib.request.Request(self.url, data=ssml.encode("utf-8"), method="POST", headers={
+            "Ocp-Apim-Subscription-Key": self.chave,
+            "Content-Type": "application/ssml+xml",
+            "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
+            "User-Agent": "VinaCare"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            audio = r.read()
+        self._cache[texto] = audio
+        if len(self._cache) > self._cache_max:
+            self._cache.popitem(last=False)
+        return audio
+
+
+def voz_do_ambiente(chat, env=os.environ):
+    """Azure se houver chave; senão tenta a voz da Oracle (mesmas credenciais da conversa)."""
+    if env.get("AZURE_SPEECH_KEY") and env.get("AZURE_SPEECH_REGION"):
+        return AzureVoz(env["AZURE_SPEECH_KEY"], env["AZURE_SPEECH_REGION"], env.get("AZURE_SPEECH_VOZ", "pt-BR-FranciscaNeural"))
+    return voz_oracle(chat)
+
+
+def voz_oracle(chat):
     """Reaproveita as mesmas credenciais da IA de conversa."""
     if chat is None:
         return None
