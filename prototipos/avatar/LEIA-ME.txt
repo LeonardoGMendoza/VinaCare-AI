@@ -1,0 +1,22 @@
+VinaCare - teste do avatar 3D falando portugues
+================================================
+
+O que e: um avatar 3D realista que fala em portugues com a boca sincronizada.
+Motor: TalkingHead (licenca MIT) + three.js.
+Avatares: exemplos do projeto TalkingHead, SO PARA TESTE (licenca nao comercial).
+No app a venda vamos trocar por um avatar com licenca comercial.
+
+COMO TESTAR NO COMPUTADOR (precisa de internet para o three.js):
+  1. Abra um terminal nesta pasta
+  2. Rode:  npx serve .
+     (ou:   python -m http.server 8000)
+  3. Abra no Chrome: http://localhost:3000  (ou :8000)
+  Obs: dar dois cliques no index.html NAO funciona; precisa do servidor.
+
+COMO TESTAR NO IPHONE (GitHub Pages):
+  1. Copie esta pasta para o repositorio VinaCare-AI, em: prototipos/avatar/
+  2. git add, commit e push
+  3. No GitHub: Settings > Pages > Branch: main / root > Save
+  4. Abra no celular: https://leonardogmendoza.github.io/VinaCare-AI/prototipos/avatar/
+
+Toque numa frase: o avatar fala. Use os botoes Clara / Rafael para trocar.
