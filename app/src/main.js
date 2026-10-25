@@ -69,9 +69,34 @@ function timings(text){
   return { words, wtimes, wdurations, total: t + 200 };
 }
 
-function say(text){
+// Voz da nuvem (Oracle): áudio de verdade, igual em qualquer celular, com a boca sincronizada.
+function decodificar(ctx, dados){
+  return new Promise((ok, erro) => { try { const p = ctx.decodeAudioData(dados, ok, erro); if (p && p.then) p.then(ok, erro); } catch (e) { erro(e); } });
+}
+async function sayNuvem(text){
+  const r = await fetch(API + '/api/voz', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto: text }) });
+  if (!r.ok) throw new Error('voz HTTP ' + r.status);
+  const buf = await decodificar(head.audioCtx, await r.arrayBuffer());
+  const tm = timings(text);
+  const k = (buf.duration * 1000) / tm.total;   // ajusta o tempo das palavras ao áudio real
+  head.speakAudio({ audio: buf, words: tm.words, wtimes: tm.wtimes.map(t => t * k), wdurations: tm.wdurations.map(t => t * k) }, { lipsyncLang: 'pt_br' });
+  setTimeout(() => { $('sub').textContent = ''; }, buf.duration * 1000 + 600);
+}
+let nuvemFalhou = false;
+async function say(text){
   text = (text || '').trim();
   if (!text || !head || loading) return;
+  try { head.audioCtx.resume(); } catch {}
+  if (API && !nuvemFalhou){
+    try { head.stopSpeaking(); } catch {}
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    $('sub').textContent = text;
+    try { await sayNuvem(text); return; }
+    catch (e) { console.warn('Voz da nuvem indisponível, usando a voz do aparelho', e); nuvemFalhou = true; setTimeout(() => { nuvemFalhou = false; }, 60000); }
+  }
+  sayAparelho(text);
+}
+function sayAparelho(text){
   try { head.audioCtx.resume(); } catch {}
   try { head.stopSpeaking(); } catch {}
   if ('speechSynthesis' in window) speechSynthesis.cancel();
@@ -185,6 +210,7 @@ $('mic').addEventListener('click', () => {
 $('send').addEventListener('click', () => { voceDisse($('reply').value); $('reply').value = ''; });
 $('reply').addEventListener('keydown', e => { if (e.key === 'Enter'){ voceDisse($('reply').value); $('reply').value = ''; } });
 
+['touchend','click'].forEach(ev => document.addEventListener(ev, () => { try { head && head.audioCtx.resume(); } catch {} }, { passive: true }));
 document.querySelectorAll('.phr').forEach(b => b.addEventListener('click', () => falaEla(b.textContent)));
 $('speak').addEventListener('click', () => falaEla($('txt').value));
 document.querySelectorAll('[data-av]').forEach(b => b.addEventListener('click', () => { if (b.dataset.av !== current) load(b.dataset.av); }));
