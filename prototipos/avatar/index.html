@@ -115,14 +115,36 @@ label{font-size:14px;color:var(--muted)}
   </div>
 </div>
 
+<script>
+// Diagnóstico: mostra na tela qualquer erro (útil no celular, onde não há console)
+(function(){
+  var st = document.getElementById('status');
+  function show(m){ if (st){ st.hidden = false; st.textContent = 'Erro: ' + m; } }
+  window.__vinaErro = show;
+  if (st) st.textContent = 'Carregando o motor 3D…';
+  window.addEventListener('error', function(e){
+    if (e && e.message) show(e.message + ' (' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || '') + ')');
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    var r = e && e.reason; show(String((r && r.message) || r));
+  });
+  setTimeout(function(){
+    if (!window.__vinaStarted){
+      var ios = (navigator.userAgent.match(/OS (\d+)_(\d+)/) || []);
+      show('o motor 3D não iniciou' + (ios[1] ? ' (iOS ' + ios[1] + '.' + ios[2] + ')' : '') + '. Recarregue a página; se continuar, me mande este print.');
+    }
+  }, 25000);
+})();
+</script>
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
 } }
 </script>
-<script type="module">
+<script type="module" onerror="window.__vinaErro && window.__vinaErro('não consegui baixar o código da página')">
 import { TalkingHead } from './talkinghead.mjs';
+window.__vinaStarted = true;
 
 const AVATARS = {
   avaturn: { url: './avaturn.glb', body: 'F', avatarMood: 'happy', lipsyncLang: 'pt_br',
@@ -145,6 +167,7 @@ async function load(key){
   try {
     await head.showAvatar(AVATARS[key], ev => {
       if (ev.lengthComputable) status('Carregando o avatar… ' + Math.round(ev.loaded / ev.total * 100) + '%');
+      else if (ev.loaded) status('Carregando o avatar… ' + (ev.loaded / 1e6).toFixed(1) + ' MB');
     });
     head.setView('upper');
     status('');
