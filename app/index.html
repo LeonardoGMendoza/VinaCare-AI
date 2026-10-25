@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VinaCare Avatar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Nunito+Sans:wght@400;600;700&display=swap">
+<style>
+body{margin:0}
+/* Layout: palco do avatar em destaque, painel de conversa ao lado (empilha no celular) */
+:root{
+  --bg:#f6f3ef; --surface:#ffffff; --ink:#26302d; --muted:#5f6b67;
+  --accent:#2f7d6d; --accent-ink:#ffffff; --warm:#c9774b; --line:#e2ddd6; --stage:#e9e4dd;
+  --display:"Fraunces", Georgia, "Times New Roman", serif;
+  --body:"Nunito Sans", "Segoe UI", Roboto, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141917; --surface:#1d2421; --ink:#eef2ef; --muted:#a8b3ae;
+  --accent:#5cbfa8; --accent-ink:#0d1714; --warm:#e39a72; --line:#2c3531; --stage:#232b28; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --surface:#1d2421; --ink:#eef2ef; --muted:#a8b3ae;
+  --accent:#5cbfa8; --accent-ink:#0d1714; --warm:#e39a72; --line:#2c3531; --stage:#232b28; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(28px,4vw,38px);margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1 span{color:var(--accent)}
+.tag{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.stage{position:relative;background:var(--stage);border-radius:18px;overflow:hidden;aspect-ratio:3/4;max-height:72vh;width:100%;max-width:100%}
+#avatar{position:absolute;inset:0}
+.status{position:absolute;left:14px;right:14px;bottom:14px;background:var(--surface);color:var(--ink);border-radius:12px;padding:10px 14px;font-size:15px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.status[hidden]{display:none}
+.sub{position:absolute;left:14px;right:14px;top:14px;font-family:var(--display);font-size:20px;line-height:1.35;color:var(--ink);text-shadow:0 1px 0 var(--stage)}
+.panel{display:flex;flex-direction:column;gap:16px;min-width:0}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.box h2{font-family:var(--display);font-weight:500;font-size:20px;margin:0}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;cursor:pointer;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:10px 16px;min-height:44px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--warm);outline-offset:2px}
+button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.phr{text-align:left;border-radius:12px;font-size:16px}
+textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;min-height:84px;resize:vertical;width:100%;box-sizing:border-box}
+select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px}
+.note{font-size:14px;color:var(--muted);margin:0}
+label{font-size:14px;color:var(--muted)}
+.log{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto}
+.log:empty::before{content:"A conversa aparece aqui.";color:var(--muted);font-size:15px}
+.msg{padding:8px 12px;border-radius:12px;max-width:88%;font-size:16px;line-height:1.4}
+.msg.ela{background:var(--stage);align-self:flex-start}
+.msg.voce{background:var(--accent);color:var(--accent-ink);align-self:flex-end}
+.mic[aria-pressed="true"]{background:var(--warm);border-color:var(--warm);color:#fff}
+#reply{flex:1;min-width:0;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:10px 16px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Vina<span>Care</span> · avatar que conversa</h1>
+    <span class="tag">Protótipo de teste</span>
+  </header>
+
+  <div class="grid">
+    <div class="stage">
+      <div id="avatar" aria-label="Avatar 3D"></div>
+      <div class="sub" id="sub" aria-live="polite"></div>
+      <div class="status" id="status">Carregando o avatar…</div>
+    </div>
+
+    <div class="panel">
+      <div class="box">
+        <h2>Escolha o avatar</h2>
+        <div class="row" id="avatars">
+          <button type="button" id="av-avaturn" data-av="avaturn" aria-pressed="true">Clara</button>
+          <button type="button" id="av-avatarsdk" data-av="avatarsdk" aria-pressed="false">Rafael</button>
+        </div>
+      </div>
+
+      <div class="box">
+        <h2>Converse com ela</h2>
+        <div class="log" id="log" aria-live="polite"></div>
+        <div class="row" style="align-items:center">
+          <button type="button" class="primary mic" id="mic" aria-pressed="false">Responder falando</button>
+          <span class="note" id="micinfo">Toque, fale e espere ela responder.</span>
+        </div>
+        <div class="row">
+          <input id="reply" type="text" aria-label="Responder escrevendo" placeholder="Ou responda escrevendo…">
+          <button type="button" id="send">Enviar</button>
+        </div>
+      </div>
+
+      <div class="box">
+        <h2>Ela fala com o idoso</h2>
+        <div class="row" style="flex-direction:column">
+          <button type="button" class="phr" id="f1">Bom dia, dona Etelvina! Como a senhora dormiu?</button>
+          <button type="button" class="phr" id="f2">Está na hora do remédio das oito. Já tomou?</button>
+          <button type="button" class="phr" id="f3">Vamos fazer um exercício juntas? Levante os braços devagar.</button>
+          <button type="button" class="phr" id="f4">Faz tempo que a senhora não conversa com a sua neta. Quer que eu avise ela?</button>
+        </div>
+      </div>
+
+      <div class="box">
+        <h2>Ou escreva uma frase</h2>
+        <textarea id="txt" aria-label="Texto para o avatar falar">Que bom te ver hoje! Me conta, o que a senhora comeu no almoço?</textarea>
+        <div class="row" style="align-items:center;justify-content:space-between">
+          <div><label for="voice">Voz</label> <select id="voice"></select></div>
+          <button type="button" class="primary" id="speak">Falar</button>
+        </div>
+        <p class="note">Boca sincronizada em português. A voz é a do próprio celular ou computador; no app final, entra a voz da nuvem.</p>
+      </div>
+
+      <p class="note">Teste com os avatares de exemplo do projeto TalkingHead (licença só para uso não comercial). No app à venda, usamos um avatar com licença comercial.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// Diagnóstico: mostra na tela qualquer erro (útil no celular, onde não há console)
+(function(){
+  var st = document.getElementById('status');
+  function show(m){ if (st){ st.hidden = false; st.textContent = 'Erro: ' + m; } }
+  window.__vinaErro = show;
+  if (st) st.textContent = 'Carregando o motor 3D…';
+  window.addEventListener('error', function(e){
+    if (e && e.message) show(e.message + ' (' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || '') + ')');
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    var r = e && e.reason; show(String((r && r.message) || r));
+  });
+  setTimeout(function(){
+    if (!window.__vinaStarted){
+      var ios = (navigator.userAgent.match(/OS (\d+)_(\d+)/) || []);
+      show('o motor 3D não iniciou' + (ios[1] ? ' (iOS ' + ios[1] + '.' + ios[2] + ')' : '') + '. Recarregue a página; se continuar, me mande este print.');
+    }
+  }, 25000);
+})();
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
