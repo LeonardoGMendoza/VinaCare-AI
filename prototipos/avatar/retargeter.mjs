@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.186.1/+esm';
 
 // Constants
 const HIPS_HEIGHT_M = 1.037; // Reference model's hip height

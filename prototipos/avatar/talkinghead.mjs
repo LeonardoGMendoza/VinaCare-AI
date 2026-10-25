@@ -22,14 +22,14 @@
 * SOFTWARE.
 */
 
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
-import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import Stats from 'three/addons/libs/stats.module.js';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.186.1/+esm';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/controls/OrbitControls.js/+esm';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/loaders/GLTFLoader.js/+esm';
+import { DRACOLoader } from 'https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/loaders/DRACOLoader.js/+esm';
+import { MeshoptDecoder } from 'https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/libs/meshopt_decoder.module.js/+esm';
+import { FBXLoader } from 'https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/loaders/FBXLoader.js/+esm';
+import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/environments/RoomEnvironment.js/+esm';
+import Stats from 'https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/libs/stats.module.js/+esm';
 
 import { retarget } from './retargeter.mjs';
 import{ DynamicBones } from './dynamicbones.mjs';
