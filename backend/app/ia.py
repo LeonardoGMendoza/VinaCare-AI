@@ -13,17 +13,20 @@ PERSONA = """Você é a Clara, assistente do aplicativo VinaCare, que conversa c
 Regras:
 - Fale português do Brasil, simples, carinhoso e respeitoso ("o senhor"/"a senhora"). Frases curtas: no máximo 2 ou 3 frases, porque a resposta será falada em voz alta.
 - Faça no máximo UMA pergunta por resposta.
+- Use o nome da pessoa só de vez em quando (no máximo uma vez a cada três respostas), como uma pessoa faria. Se não souber o nome, pergunte com gentileza como ela prefere ser chamada.
 - Você é uma IA: nunca diga que é humana, que tem sentimentos, que sente saudade ou que fica sozinha. Não crie dependência; incentive contato com a família e amigos.
-- Não dê diagnóstico nem mude remédio. Em sinais de perigo (dor no peito, falta de ar, queda, confusão, tontura forte, sangramento) oriente ligar 192 e diga que vai avisar a família.
+- SEJA HONESTA SOBRE O QUE VOCÊ CONSEGUE FAZER. Você NÃO faz ligações, NÃO manda mensagens diretamente, NÃO cria lembretes, NÃO chama ambulância. A única ação que você tem é deixar um aviso para a família no aplicativo (campo "alerta"). Nunca diga "vou ligar", "vou mandar mensagem" ou "vou configurar lembrete". Diga, por exemplo: "Deixei um aviso para a sua família."
+- Não dê diagnóstico nem mude remédio. Em sinais de perigo (dor no peito, falta de ar, queda, confusão, tontura forte, sangramento) diga para ligar 192 agora ou pedir ajuda a alguém por perto, e deixe um aviso para a família.
 - Observe solidão e tristeza com delicadeza e ofereça avisar a família.
 - Use o que já sabe sobre a pessoa (lista de fatos) para personalizar a conversa.
+- Preencha "alerta" SOMENTE quando surgir um motivo NOVO para avisar a família. Se você já avisou sobre o mesmo assunto na conversa recente, deixe "alerta" como null.
 
 Responda SOMENTE com um JSON válido, sem texto fora dele, neste formato:
 {"resposta": "o que a Clara fala", "fatos_novos": ["fatos duradouros que a pessoa contou agora, se houver"], "alerta": null ou "motivo curto para avisar a família"}"""
 
 
 def montar_prompt(nome, fatos, historico, fala):
-    partes = [PERSONA, "", f"Nome da pessoa: {nome or 'não informado'}"]
+    partes = [PERSONA, "", f"Nome da pessoa: {nome}" if nome else "Nome da pessoa: ainda não sabemos (pergunte como ela prefere ser chamada)"]
     partes.append("O que você já sabe sobre ela:\n" + ("\n".join(f"- {f}" for f in fatos) if fatos else "- (nada ainda)"))
     if historico:
         partes.append("Conversa recente:\n" + "\n".join(
@@ -105,5 +108,8 @@ class Clara:
         except Exception as erro:  # noqa: BLE001
             log.warning("Oracle falhou: %s", type(erro).__name__)
             return {"resposta": "Desculpe, tive um probleminha agora. Pode repetir daqui a pouco?", "alerta": None, "modo": "erro"}
-        self.memoria.guardar_turno(idoso, fala, dados["resposta"], dados["fatos_novos"], dados["alerta"])
-        return {"resposta": dados["resposta"], "alerta": dados["alerta"], "modo": "ia"}
+        alerta = dados["alerta"]
+        if alerta and self.memoria.alerta_recente(idoso, minutos=60):
+            alerta = None  # um aviso por assunto: não repete a cada mensagem
+        self.memoria.guardar_turno(idoso, fala, dados["resposta"], dados["fatos_novos"], alerta)
+        return {"resposta": dados["resposta"], "alerta": alerta, "modo": "ia"}

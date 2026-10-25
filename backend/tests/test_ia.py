@@ -31,6 +31,18 @@ class TestIA(unittest.TestCase):
             self.assertEqual(len(mem.historico("demo")), 2)
             mem.db.close()
 
+    def test_alerta_nao_repete(self):
+        with tempfile.TemporaryDirectory() as d:
+            mem = Memoria(d)
+            falso = lambda prompt: '{"resposta": "Deixei um aviso.", "fatos_novos": [], "alerta": "saudade"}'
+            c = Clara(falso, mem)
+            self.assertEqual(c.conversar("x1", "", "saudade")["alerta"], "saudade")
+            self.assertIsNone(c.conversar("x1", "", "muita saudade")["alerta"])
+            mem.db.close()
+
+    def test_sem_nome_pede_nome(self):
+        self.assertIn("pergunte como ela prefere ser chamada", montar_prompt("", [], [], "oi"))
+
     def test_sem_ia(self):
         with tempfile.TemporaryDirectory() as d:
             mem = Memoria(d)

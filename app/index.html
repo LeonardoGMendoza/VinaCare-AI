@@ -58,7 +58,7 @@ label{font-size:14px;color:var(--muted)}
 .msg.alerta{background:var(--warm);color:#fff;align-self:stretch;max-width:100%;font-size:15px}
 .msg.voce{background:var(--accent);color:var(--accent-ink);align-self:flex-end}
 .mic[aria-pressed="true"]{background:var(--warm);border-color:var(--warm);color:#fff}
-#reply{flex:1;min-width:0;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:10px 16px}
+#nome,#reply{flex:1;min-width:0;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:10px 16px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -88,6 +88,10 @@ label{font-size:14px;color:var(--muted)}
 
       <div class="box">
         <h2>Converse com ela</h2>
+        <div class="row" style="align-items:center">
+          <label for="nome">Como você quer ser chamado(a)?</label>
+          <input id="nome" type="text" maxlength="60" placeholder="Ex.: Dona Maria, Seu José" autocomplete="given-name">
+        </div>
         <div class="log" id="log" aria-live="polite"></div>
         <div class="row" style="align-items:center">
           <button type="button" class="primary mic" id="mic" aria-pressed="false">Responder falando</button>
@@ -102,7 +106,7 @@ label{font-size:14px;color:var(--muted)}
       <div class="box">
         <h2>Ela fala com o idoso</h2>
         <div class="row" style="flex-direction:column">
-          <button type="button" class="phr" id="f1">Bom dia, dona Etelvina! Como a senhora dormiu?</button>
+          <button type="button" class="phr" id="f1">Bom dia! Como foi a sua noite?</button>
           <button type="button" class="phr" id="f2">Está na hora do remédio das oito. Já tomou?</button>
           <button type="button" class="phr" id="f3">Vamos fazer um exercício juntas? Levante os braços devagar.</button>
           <button type="button" class="phr" id="f4">Faz tempo que a senhora não conversa com a sua neta. Quer que eu avise ela?</button>

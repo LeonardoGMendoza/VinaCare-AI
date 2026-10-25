@@ -124,6 +124,13 @@ function responder(fala){
 }
 // IA da Oracle pelo back-end do VinaCare (se configurado). Sem back-end: respostas de demonstração.
 const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+// Cada celular tem a sua pessoa: um código próprio e o nome que ela escolher (guardados só no aparelho)
+const guarda = { get(k){ try { return localStorage.getItem(k); } catch { return null; } },
+                 set(k, v){ try { localStorage.setItem(k, v); } catch {} } };
+let idoso = guarda.get('vina-id');
+if (!idoso){ idoso = 'p' + Math.random().toString(36).slice(2, 12); guarda.set('vina-id', idoso); }
+$('nome').value = guarda.get('vina-nome') || '';
+$('nome').addEventListener('change', () => guarda.set('vina-nome', $('nome').value.trim()));
 async function voceDisse(text){
   text = (text || '').trim(); if (!text) return;
   addMsg('voce', text);
@@ -132,7 +139,7 @@ async function voceDisse(text){
   try {
     const r = await fetch(API + '/api/conversa', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idoso: 'demo', nome: 'Etelvina', texto: text })
+      body: JSON.stringify({ idoso, nome: $('nome').value.trim(), texto: text })
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();

@@ -47,6 +47,12 @@ class Memoria:
                 self.db.execute("INSERT INTO alertas VALUES (?,?,?)", (idoso, str(alerta)[:300], agora))
             self.db.commit()
 
+    def alerta_recente(self, idoso, minutos=60):
+        with self.lock:
+            row = self.db.execute("SELECT 1 FROM alertas WHERE idoso=? AND criado>? LIMIT 1",
+                                  (idoso, time.time() - minutos * 60)).fetchone()
+        return row is not None
+
     def esquecer(self, idoso):
         with self.lock:
             for t in ("fatos", "conversa", "alertas"):
