@@ -35,13 +35,24 @@ async function load(key){
 }
 
 // Vozes em português do aparelho
+function vozNota(v){
+  // Prefere vozes de alta qualidade em português do Brasil
+  const n = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+  let p = 0;
+  if (/^pt[-_]br/i.test(v.lang)) p += 100; else if (/^pt/i.test(v.lang)) p += 10;
+  if (/premium/.test(n)) p += 50;
+  if (/enhanced|aprimorad|natural|neural|online/.test(n)) p += 40;
+  if (/luciana|francisca|thalita|google portugu/.test(n)) p += 15;
+  if (/compact|eloquence|novelty/.test(n)) p -= 30;
+  return p;
+}
 function fillVoices(){
   const vs = (speechSynthesis.getVoices() || []).filter(v => /^pt/i.test(v.lang));
   const sel = $('voice'); const prev = sel.value; sel.innerHTML = '';
   if (!vs.length){ const o = document.createElement('option'); o.textContent = 'Padrão do aparelho'; o.value = ''; sel.appendChild(o); return; }
-  vs.sort((a,b) => (b.lang === 'pt-BR') - (a.lang === 'pt-BR'));
+  vs.sort((a,b) => vozNota(b) - vozNota(a));
   vs.forEach(v => { const o = document.createElement('option'); o.value = v.name; o.textContent = v.name.replace(/Microsoft |Google /,'') + ' (' + v.lang + ')'; sel.appendChild(o); });
-  if (prev) sel.value = prev;
+  if (prev && vs.some(v => v.name === prev)) sel.value = prev;
 }
 if ('speechSynthesis' in window){ fillVoices(); speechSynthesis.onvoiceschanged = fillVoices; }
 
@@ -73,7 +84,7 @@ function say(text){
 
   if ('speechSynthesis' in window){
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'pt-BR'; u.rate = 0.95;
+    u.lang = 'pt-BR'; u.rate = 0.92; u.volume = 1; u.pitch = 1;
     const v = speechSynthesis.getVoices().find(x => x.name === $('voice').value);
     if (v) u.voice = v;
     let started = false;
