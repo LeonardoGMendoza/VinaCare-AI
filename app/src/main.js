@@ -122,10 +122,28 @@ function responder(fala){
   if (/(comi|almoco|almocei|jantar|cafe)/.test(t)) return 'Hum, que delícia! Comer bem dá energia. Já bebeu água hoje?';
   return 'Entendi. Me conta um pouco mais sobre isso?';
 }
-function voceDisse(text){
+// IA da Oracle pelo back-end do VinaCare (se configurado). Sem back-end: respostas de demonstração.
+const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+async function voceDisse(text){
   text = (text || '').trim(); if (!text) return;
   addMsg('voce', text);
-  setTimeout(() => falaEla(responder(text)), 400);
+  if (!API){ setTimeout(() => falaEla(responder(text)), 400); return; }
+  $('micinfo').textContent = 'A Clara está pensando…';
+  try {
+    const r = await fetch(API + '/api/conversa', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idoso: 'demo', nome: 'Etelvina', texto: text })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    falaEla(d.resposta);
+    if (d.alerta) addMsg('alerta', 'Aviso para a família: ' + d.alerta);
+  } catch (e) {
+    console.warn('API indisponível, usando respostas de demonstração', e);
+    falaEla(responder(text));
+  } finally {
+    $('micinfo').textContent = 'Toque, fale e espere ela responder.';
+  }
 }
 
 // Reconhecimento de voz do navegador (Chrome e Safari)
