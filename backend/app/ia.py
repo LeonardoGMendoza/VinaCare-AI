@@ -9,7 +9,7 @@ import threading
 log = logging.getLogger("vinacare.ia")
 CHAT_MODEL = os.getenv("VINACARE_MODELO", "cohere.command-a-03-2025")
 
-PERSONA = """Você é a Clara, assistente do aplicativo VinaCare, que conversa com uma pessoa idosa pelo celular.
+PERSONA = """Você é {artigo} {nome_assistente}, assistente do aplicativo VinaCare, que conversa com uma pessoa idosa pelo celular.
 Regras:
 - Fale português do Brasil, simples, carinhoso e respeitoso ("o senhor"/"a senhora"). Frases curtas: no máximo 2 ou 3 frases, porque a resposta será falada em voz alta.
 - Faça no máximo UMA pergunta por resposta.
@@ -22,15 +22,20 @@ Regras:
 - Preencha "alerta" SOMENTE quando surgir um motivo NOVO para avisar a família. Se você já avisou sobre o mesmo assunto na conversa recente, deixe "alerta" como null.
 
 Responda SOMENTE com um JSON válido, sem texto fora dele, neste formato:
-{"resposta": "o que a Clara fala", "fatos_novos": ["fatos duradouros que a pessoa contou agora, se houver"], "alerta": null ou "motivo curto para avisar a família"}"""
+{{"resposta": "o que {nome_assistente} fala", "fatos_novos": ["fatos duradouros que a pessoa contou agora, se houver"], "alerta": null ou "motivo curto para avisar a família"}}"""
 
 
-def montar_prompt(nome, fatos, historico, fala):
-    partes = [PERSONA, "", f"Nome da pessoa: {nome}" if nome else "Nome da pessoa: ainda não sabemos (pergunte como ela prefere ser chamada)"]
+ASSISTENTES = {"Clara": "a", "Rafael": "o"}
+
+
+def montar_prompt(nome, fatos, historico, fala, assistente="Clara"):
+    assistente = assistente if assistente in ASSISTENTES else "Clara"
+    persona = PERSONA.format(artigo=ASSISTENTES[assistente], nome_assistente=assistente)
+    partes = [persona, "", f"Nome da pessoa: {nome}" if nome else "Nome da pessoa: ainda não sabemos (pergunte como ela prefere ser chamada)"]
     partes.append("O que você já sabe sobre ela:\n" + ("\n".join(f"- {f}" for f in fatos) if fatos else "- (nada ainda)"))
     if historico:
         partes.append("Conversa recente:\n" + "\n".join(
-            f"{'Pessoa' if q == 'idoso' else 'Clara'}: {t}" for q, t in historico))
+            f"{'Pessoa' if q == 'idoso' else 'Assistente'}: {t}" for q, t in historico))
     partes.append(f"A pessoa acabou de dizer: \"{fala}\"")
     partes.append("Agora responda com o JSON.")
     return "\n\n".join(partes)
@@ -96,13 +101,13 @@ class Clara:
     def __init__(self, chat, memoria):
         self.chat, self.memoria = chat, memoria
 
-    def conversar(self, idoso, nome, fala):
+    def conversar(self, idoso, nome, fala, assistente="Clara"):
         fala = (fala or "").strip()[:500]
         if not fala:
             return {"resposta": "Pode falar, estou ouvindo.", "alerta": None, "modo": "vazio"}
         if self.chat is None:
             return {"resposta": "Minha conexão com a inteligência ainda não foi configurada.", "alerta": None, "modo": "sem-ia"}
-        prompt = montar_prompt(nome, self.memoria.fatos(idoso), self.memoria.historico(idoso), fala)
+        prompt = montar_prompt(nome, self.memoria.fatos(idoso), self.memoria.historico(idoso), fala, assistente)
         try:
             dados = interpretar(self.chat(prompt))
         except Exception as erro:  # noqa: BLE001

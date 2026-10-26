@@ -14,11 +14,14 @@ const AVATARS = {
 const $ = id => document.getElementById(id);
 const status = (t) => { $('status').hidden = !t; if (t) $('status').textContent = t; };
 let head = null, current = 'avaturn', loading = false;
+const NOMES = { avaturn: 'Clara', avatarsdk: 'Rafael' };
+const assistente = () => NOMES[current] || 'Clara';
 
 async function load(key){
   if (loading) return;
   loading = true; current = key;
   document.querySelectorAll('[data-av]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.av === key)));
+  const t = document.getElementById('convTitulo'); if (t) t.textContent = 'Converse com ' + (key === 'avatarsdk' ? 'ele' : 'ela');
   status('Carregando o avatar… 0%');
   try {
     await head.showAvatar(AVATARS[key], ev => {
@@ -74,7 +77,7 @@ function decodificar(ctx, dados){
   return new Promise((ok, erro) => { try { const p = ctx.decodeAudioData(dados, ok, erro); if (p && p.then) p.then(ok, erro); } catch (e) { erro(e); } });
 }
 async function sayNuvem(text){
-  const r = await fetch(API + '/api/voz', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto: text }) });
+  const r = await fetch(API + '/api/voz', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto: text, assistente: assistente() }) });
   if (!r.ok) throw new Error('voz HTTP ' + r.status);
   const buf = await decodificar(head.audioCtx, await r.arrayBuffer());
   const tm = timings(text);
@@ -174,7 +177,7 @@ async function voceDisse(text){
   try {
     const r = await fetch(API + '/api/conversa', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idoso, nome: $('nome').value.trim(), texto: text })
+      body: JSON.stringify({ idoso, nome: $('nome').value.trim(), texto: text, assistente: assistente() })
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();

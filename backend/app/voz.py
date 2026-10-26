@@ -33,7 +33,7 @@ class OracleVoz:
         resp = self._cliente().list_voices(compartment_id=self.compartment_id)
         return oci.util.to_dict(resp.data)
 
-    def __call__(self, texto):
+    def __call__(self, texto, voz=None):
         texto = (texto or "").strip()[:600]
         if texto in self._cache:
             self._cache.move_to_end(texto)
@@ -77,14 +77,16 @@ class AzureVoz:
             todas = json.loads(r.read().decode("utf-8"))
         return [{"nome": v.get("ShortName"), "genero": v.get("Gender")} for v in todas if v.get("Locale") == "pt-BR"]
 
-    def __call__(self, texto):
+    def __call__(self, texto, voz=None):
         import urllib.request
         from xml.sax.saxutils import escape
         texto = (texto or "").strip()[:600]
-        if texto in self._cache:
-            self._cache.move_to_end(texto)
-            return self._cache[texto]
-        ssml = (f'<speak version="1.0" xml:lang="pt-BR"><voice name="{self.voz}">'
+        voz = voz or self.voz
+        chave = (voz, texto)
+        if chave in self._cache:
+            self._cache.move_to_end(chave)
+            return self._cache[chave]
+        ssml = (f'<speak version="1.0" xml:lang="pt-BR"><voice name="{voz}">'
                 f'<prosody rate="-8%">{escape(texto)}</prosody></voice></speak>')
         req = urllib.request.Request(self.url, data=ssml.encode("utf-8"), method="POST", headers={
             "Ocp-Apim-Subscription-Key": self.chave,
@@ -93,7 +95,7 @@ class AzureVoz:
             "User-Agent": "VinaCare"})
         with urllib.request.urlopen(req, timeout=30) as r:
             audio = r.read()
-        self._cache[texto] = audio
+        self._cache[chave] = audio
         if len(self._cache) > self._cache_max:
             self._cache.popitem(last=False)
         return audio
