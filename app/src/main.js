@@ -228,7 +228,8 @@ document.querySelectorAll('[data-av]').forEach(b => b.addEventListener('click', 
 try {
   head = new TalkingHead($('avatar'), {
     lipsyncModules: [], lipsyncLang: 'pt_br',
-    cameraView: 'upper', avatarMood: 'happy', modelFPS: 30
+    cameraView: 'upper', avatarMood: 'happy', modelFPS: 30,
+    mixerGainSpeech: 2.5   // volume mais alto da voz (iPhone toca baixo)
   });
   head.lipsync['pt_br'] = new LipsyncPt_br(); // português do Brasil, carregado direto (sem import dinâmico)
   load('avaturn');
