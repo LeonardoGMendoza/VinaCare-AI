@@ -20,7 +20,7 @@ let landmarker = null, desenho = null, ultimoTempo = -1, gravando = false, quadr
 
 $('codigo').value = guarda.get('vina-coleta-codigo') || '';
 $('pessoa').value = guarda.get('vina-coleta-pessoa') || '';
-$('codigo').addEventListener('change', () => guarda.set('vina-coleta-codigo', $('codigo').value.trim()));
+$('codigo').addEventListener('input', () => guarda.set('vina-coleta-codigo', $('codigo').value.trim()));
 $('pessoa').addEventListener('change', () => guarda.set('vina-coleta-pessoa', $('pessoa').value.trim()));
 
 for (const [id, nome] of Object.entries({ levantar_bracos: 'Levantar os braços', abrir_bracos: 'Abrir os braços', sentar_levantar: 'Sentar e levantar da cadeira', marcha_parado: 'Marchar parado' })){
@@ -88,10 +88,12 @@ function loop(){
 
 const espera = (ms) => new Promise(r => setTimeout(r, ms));
 async function gravar(){
-  const codigo = $('codigo').value.trim();
+  const codigo = $('codigo').value.trim().toLowerCase();
+  guarda.set('vina-coleta-codigo', codigo);
   if (!codigo){ status('Preencha o código de coleta antes de gravar.'); $('codigo').focus(); return; }
   if (!API){ status('O endereço do servidor não está configurado (VITE_API_URL).'); return; }
   $('gravar').disabled = true;
+  $('video').closest('.cam').scrollIntoView({ behavior: 'smooth', block: 'start' });
   for (const n of [3, 2, 1]){ $('contagem').textContent = n; await espera(1000); }
   $('contagem').textContent = '●';
   quadros = []; gravando = true; const inicio = performance.now();

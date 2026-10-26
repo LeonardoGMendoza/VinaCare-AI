@@ -69,6 +69,7 @@ td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 input[type=text],input[type=password],select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
 .campo{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px}
+button:disabled{opacity:.4;cursor:not-allowed}
 .instr{font-size:15px;color:var(--muted);margin:0}
 </style>
 </head>
@@ -92,7 +93,7 @@ input[type=text],input[type=password],select{font:inherit;color:var(--ink);backg
       <div class="box">
         <h2>1. Quem está gravando</h2>
         <div class="row">
-          <div class="campo"><label for="codigo">Código de coleta</label><input id="codigo" type="password" autocomplete="off" placeholder="definido no servidor"></div>
+          <div class="campo"><label for="codigo">Código de coleta</label><input id="codigo" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="código do servidor"></div>
           <div class="campo"><label for="pessoa">Apelido (sem nome completo)</label><input id="pessoa" type="text" maxlength="40" placeholder="Ex.: leo, sandra, voluntario1"></div>
         </div>
       </div>
