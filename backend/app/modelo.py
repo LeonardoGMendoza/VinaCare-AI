@@ -54,7 +54,11 @@ def avaliador_do_ambiente(env=os.environ):
               "tenancy": env.get("OCI_TENANCY"), "key_content": chave}
     if not url or not all(config.values()):
         return None
-    return AvaliadorOCI(url, config)
+    try:
+        return AvaliadorOCI(url, config)
+    except Exception as erro:  # noqa: BLE001  (sem o avaliador a API continua no ar: conversa e voz)
+        log.warning("Avaliador de exercícios desligado: %s: %s", type(erro).__name__, str(erro)[:200])
+        return None
 
 
 def avaliar(prever, exercicio, quadros, fps=30):

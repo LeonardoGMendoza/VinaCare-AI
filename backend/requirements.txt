@@ -5,3 +5,5 @@ pydantic==2.14.0
 oci>=2.150,<3
 # Características do exercício (mesmo cálculo do notebook)
 numpy>=2,<3
+# Chamada HTTP assinada ao Model Deployment
+requests>=2.31,<3
