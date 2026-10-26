@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VinaCare Coleta</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Nunito+Sans:wght@400;600;700&display=swap">
+<style>body{margin:0}:root{--bg:#f6f3ef;--surface:#fff;--ink:#26302d;--muted:#5f6b67;--accent:#2f7d6d;--accent-ink:#fff;--warm:#c9774b;--line:#e2ddd6;--stage:#e9e4dd;--display:"Fraunces", Georgia, "Times New Roman", serif;--body:"Nunito Sans", "Segoe UI", Roboto, Arial, sans-serif}@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#141917;--surface:#1d2421;--ink:#eef2ef;--muted:#a8b3ae;--accent:#5cbfa8;--accent-ink:#0d1714;--warm:#e39a72;--line:#2c3531;--stage:#232b28;--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark}}:root[data-theme=dark]{--bg:#141917;--surface:#1d2421;--ink:#eef2ef;--muted:#a8b3ae;--accent:#5cbfa8;--accent-ink:#0d1714;--warm:#e39a72;--line:#2c3531;--stage:#232b28;--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark}html,body{height:100%}body{background:var(--bg);color:var(--ink);font-family:var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block-start:20px;padding-block-end:20px;font-size:17px;line-height:1.5}.wrap{flex-direction:column;gap:18px;max-width:1080px;margin:0 auto;display:flex}header{flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px;display:flex}h1{font-family:var(--display);letter-spacing:-.01em;text-wrap:balance;margin:0;font-size:max(28px,min(4vw,38px));font-weight:600}h1 span{color:var(--accent)}.tag{letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-size:13px}.grid{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;display:grid}@media (max-width:760px){.grid{grid-template-columns:1fr}}.stage{background:var(--stage);aspect-ratio:3/4;border-radius:18px;width:100%;max-width:100%;max-height:72vh;position:relative;overflow:hidden}#avatar{position:absolute;top:0;bottom:0;left:0;right:0}.status{background:var(--surface);color:var(--ink);border-radius:12px;padding:10px 14px;font-size:15px;position:absolute;bottom:14px;left:14px;right:14px;box-shadow:0 2px 10px #00000014}.status[hidden]{display:none}.sub{font-family:var(--display);color:var(--ink);text-shadow:0 1px 0 var(--stage);font-size:20px;line-height:1.35;position:absolute;top:14px;left:14px;right:14px}.panel{flex-direction:column;gap:16px;min-width:0;display:flex}.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;flex-direction:column;gap:12px;padding:16px;display:flex}.box h2{font-family:var(--display);margin:0;font-size:20px;font-weight:500}.row{flex-wrap:wrap;gap:8px;display:flex}button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;min-height:44px;padding:10px 16px}button:hover{border-color:var(--accent)}button:focus-visible{outline:3px solid var(--warm);outline-offset:2px}textarea:focus-visible{outline:3px solid var(--warm);outline-offset:2px}select:focus-visible{outline:3px solid var(--warm);outline-offset:2px}button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}.phr{text-align:left;border-radius:12px;font-size:16px}textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);resize:vertical;box-sizing:border-box;border-radius:12px;width:100%;min-height:84px;padding:12px}select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px}.note{color:var(--muted);margin:0;font-size:14px}label{color:var(--muted);font-size:14px}.log{flex-direction:column;gap:8px;max-height:220px;display:flex;overflow-y:auto}.log:empty:before{content:"A conversa aparece aqui.";color:var(--muted);font-size:15px}.msg{border-radius:12px;max-width:88%;padding:8px 12px;font-size:16px;line-height:1.4}.msg.ela{background:var(--stage);align-self:flex-start}.msg.alerta{background:var(--warm);color:#fff;align-self:stretch;max-width:100%;font-size:15px}.msg.voce{background:var(--accent);color:var(--accent-ink);align-self:flex-end}.mic[aria-pressed=true]{background:var(--warm);border-color:var(--warm);color:#fff}#nome,#reply{min-width:0;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:999px;flex:1;padding:10px 16px}@media (prefers-reduced-motion:reduce){*{transition:none!important}}</style>
+<style>.cam{background:var(--stage);aspect-ratio:4/3;border-radius:18px;width:100%;max-width:100%;position:relative;overflow:hidden}.cam video,.cam canvas{object-fit:cover;width:100%;height:100%;position:absolute;top:0;bottom:0;left:0;right:0;transform:scaleX(-1)}.grande{font-family:var(--display);color:#fff;text-shadow:0 2px 12px #0009;pointer-events:none;justify-content:center;align-items:center;font-size:96px;display:flex;position:absolute;top:0;bottom:0;left:0;right:0}.medidor{font-variant-numeric:tabular-nums;color:var(--muted);font-size:15px}table{border-collapse:collapse;width:100%;font-size:15px}td,th{border-bottom:1px solid var(--line);text-align:left;padding:6px 4px}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}input[type=text],input[type=password],select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;min-width:0;padding:8px 10px}.campo{flex-direction:column;flex:1;gap:4px;min-width:140px;display:flex}.instr{color:var(--muted);margin:0;font-size:15px}</style>
+  <script type="module" crossorigin src="./assets/coleta-Crna1Ppm.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-P2Xu9kJm.js">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Vina<span>Care</span> · coleta de exercícios</h1>
+    <span class="tag">Dataset para o OCI Data Science</span>
+  </header>
+  <div class="grid">
+    <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
+      <div class="cam">
+        <video id="video" playsinline muted></video>
+        <canvas id="tela"></canvas>
+        <div class="grande" id="contagem"></div>
+      </div>
+      <div class="status" id="status" style="position:static">Toque em "Ligar câmera" para começar.</div>
+      <div class="medidor" id="medidor">Ângulo do braço: –</div>
+    </div>
+    <div class="panel">
+      <div class="box">
+        <h2>1. Quem está gravando</h2>
+        <div class="row">
+          <div class="campo"><label for="codigo">Código de coleta</label><input id="codigo" type="password" autocomplete="off" placeholder="definido no servidor"></div>
+          <div class="campo"><label for="pessoa">Apelido (sem nome completo)</label><input id="pessoa" type="text" maxlength="40" placeholder="Ex.: leo, sandra, voluntario1"></div>
+        </div>
+      </div>
+      <div class="box">
+        <h2>2. O que gravar</h2>
+        <select id="exercicio" aria-label="Exercício"></select>
+        <p class="instr" id="instr"></p>
+        <div class="row">
+          <button type="button" id="q-certo" aria-pressed="true">Feito certo</button>
+          <button type="button" id="q-errado" aria-pressed="false">Feito errado (de propósito)</button>
+        </div>
+      </div>
+      <div class="box">
+        <h2>3. Gravar</h2>
+        <div class="row">
+          <button type="button" class="primary" id="ligar">Ligar câmera</button>
+          <button type="button" class="primary" id="gravar" disabled>Gravar 5 segundos</button>
+        </div>
+        <p class="note">Fique de corpo inteiro na câmera, a uns 2 metros. A imagem não sai do aparelho: só os 33 pontos do corpo são enviados.</p>
+      </div>
+      <div class="box">
+        <h2>Gravações no servidor</h2>
+        <table><thead><tr><th>Exercício</th><th class="n">Certo</th><th class="n">Errado</th></tr></thead><tbody id="resumo"><tr><td colspan="3">Carregando…</td></tr></tbody></table>
+        <p class="note">Meta: pelo menos 30 "certo" e 15 "errado" de cada exercício, de pessoas diferentes.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

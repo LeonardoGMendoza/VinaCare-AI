@@ -15,12 +15,14 @@ carregar_env()
 from .ia import Clara, oracle_do_ambiente  # noqa: E402
 from .memoria import Memoria  # noqa: E402
 from .voz import voz_do_ambiente  # noqa: E402
+from .dataset import Dataset, validar, EXERCICIOS  # noqa: E402
 
 app = FastAPI(title="VinaCare API", version="0.1.0")
 origens = [o.strip() for o in os.getenv("VINACARE_ORIGENS", "http://localhost:5173,https://leonardogmendoza.github.io").split(",") if o.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=origens, allow_methods=["GET", "POST", "DELETE"], allow_headers=["*"])
 
 memoria = Memoria(os.getenv("VINACARE_DATA_DIR", "./data"))
+dataset = Dataset(os.getenv("VINACARE_DATA_DIR", "./data"))
 clara = Clara(oracle_do_ambiente(), memoria)
 voz = voz_do_ambiente(clara.chat)
 ID_OK = re.compile(r"^[a-zA-Z0-9_-]{1,40}$")
@@ -112,3 +114,46 @@ def listar_vozes():
         return voz.vozes()
     except Exception as erro:  # noqa: BLE001
         raise HTTPException(503, f"{type(erro).__name__}: {str(erro)[:300]}") from erro
+
+
+class Gravacao(BaseModel):
+    exercicio: str = Field(..., max_length=40)
+    qualidade: str = Field(..., max_length=10)
+    pessoa: str = Field("anonimo", max_length=40)
+    fps: float = Field(30, ge=1, le=120)
+    quadros: list
+
+
+def checar_codigo(request: Request):
+    """Só quem tem o código de coleta (definido no servidor) pode gravar e exportar o dataset."""
+    codigo = os.getenv("VINACARE_COLETA_CODIGO", "")
+    if not codigo or request.headers.get("x-coleta-codigo") != codigo:
+        raise HTTPException(403, "Código de coleta inválido.")
+
+
+@app.get("/api/dataset/exercicios")
+def exercicios():
+    return EXERCICIOS
+
+
+@app.get("/api/dataset/resumo")
+def resumo_dataset():
+    return dataset.resumo()
+
+
+@app.post("/api/dataset")
+def gravar(g: Gravacao, request: Request):
+    checar_codigo(request)
+    limitar(request, maximo=20)
+    erro = validar(g.exercicio, g.qualidade, g.quadros)
+    if erro:
+        raise HTTPException(422, erro)
+    return {"ok": True, "arquivo": dataset.salvar(g.exercicio, g.qualidade, g.quadros, g.pessoa, g.fps),
+            "resumo": dataset.resumo()}
+
+
+@app.get("/api/dataset/exportar")
+def exportar(request: Request):
+    """Usado pelo notebook do OCI Data Science para baixar todas as gravações."""
+    checar_codigo(request)
+    return dataset.exportar()
