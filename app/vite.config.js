@@ -12,7 +12,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        coleta: resolve(__dirname, 'coleta.html')
+        coleta: resolve(__dirname, 'coleta.html'),
+        exercicio: resolve(__dirname, 'exercicio.html')
       }
     }
   }

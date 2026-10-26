@@ -3,3 +3,5 @@ uvicorn==0.54.0
 pydantic==2.14.0
 # IA da Oracle Cloud (Generative AI) - a mesma conta do Omni
 oci>=2.150,<3
+# Características do exercício (mesmo cálculo do notebook)
+numpy>=2,<3

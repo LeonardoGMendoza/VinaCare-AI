@@ -16,6 +16,7 @@ from .ia import Clara, oracle_do_ambiente  # noqa: E402
 from .memoria import Memoria  # noqa: E402
 from .voz import voz_do_ambiente  # noqa: E402
 from .dataset import Dataset, validar, EXERCICIOS  # noqa: E402
+from .modelo import avaliador_do_ambiente, avaliar  # noqa: E402
 
 app = FastAPI(title="VinaCare API", version="0.1.0")
 origens = [o.strip() for o in os.getenv("VINACARE_ORIGENS", "http://localhost:5173,https://leonardogmendoza.github.io").split(",") if o.strip()]
@@ -25,6 +26,7 @@ memoria = Memoria(os.getenv("VINACARE_DATA_DIR", "./data"))
 dataset = Dataset(os.getenv("VINACARE_DATA_DIR", "./data"))
 clara = Clara(oracle_do_ambiente(), memoria)
 voz = voz_do_ambiente(clara.chat)
+avaliador = avaliador_do_ambiente()
 ID_OK = re.compile(r"^[a-zA-Z0-9_-]{1,40}$")
 _pedidos = defaultdict(deque)
 
@@ -62,7 +64,7 @@ def checar(idoso):
 
 @app.get("/api/saude")
 def saude():
-    return {"ok": True, "ia": clara.chat is not None, "voz": voz is not None}
+    return {"ok": True, "modelo": avaliador is not None, "ia": clara.chat is not None, "voz": voz is not None}
 
 
 @app.post("/api/conversa")
@@ -157,3 +159,27 @@ def exportar(request: Request):
     """Usado pelo notebook do OCI Data Science para baixar todas as gravações."""
     checar_codigo(request)
     return dataset.exportar()
+
+
+class Exercicio(BaseModel):
+    exercicio: str = Field(..., max_length=40)
+    fps: float = Field(30, ge=1, le=120)
+    quadros: list
+
+
+@app.post("/api/exercicio/avaliar")
+def avaliar_exercicio(e: Exercicio, request: Request):
+    """Manda a gravação para o modelo treinado no OCI Data Science (Model Deployment) e devolve a frase para a Clara."""
+    limitar(request, maximo=12)
+    erro = validar(e.exercicio, "certo", e.quadros)
+    if erro:
+        raise HTTPException(422, erro)
+    try:
+        r = avaliar(avaliador, e.exercicio, e.quadros, e.fps)
+    except Exception as falha:  # noqa: BLE001
+        import logging
+        logging.getLogger("vinacare").warning("Model Deployment falhou: %s: %s", type(falha).__name__, str(falha)[:200])
+        raise HTTPException(503, "O avaliador de exercícios está desligado agora.") from falha
+    if not r["ok"]:
+        raise HTTPException(503, r["erro"])
+    return r
