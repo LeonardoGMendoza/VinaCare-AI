@@ -159,9 +159,15 @@ function sayAparelho(text){
   } else startLips();
   return tm.total;
 }
+// iPhone: depois que o microfone liga, o iOS deixa o som no modo "ligação" (baixo, no alto-falante de cima).
+// A API Audio Session (Safari 16.4+) devolve o som para o alto-falante principal, no volume normal.
+function modoSom(tipo){ try { if (navigator.audioSession) navigator.audioSession.type = tipo; } catch {} }
+modoSom('playback');
+
 async function say(text){
   text = (text || '').trim();
   if (!text || !head || loading) return;
+  modoSom('playback');
   try { head.audioCtx.resume(); } catch {}
   try { head.stopSpeaking(); } catch {}
   if ('speechSynthesis' in window) speechSynthesis.cancel();
@@ -212,6 +218,7 @@ if (SR){
     $('dica').textContent = e.error === 'not-allowed' ? T().micBloqueado : e.error === 'no-speech' ? T().tocar : T().naoEntendi;
   };
   rec.onend = () => {
+    modoSom('playback');
     if (!ouvindo) return;
     ouvindo = false;
     if (ouvido){ const t = ouvido; ouvido = ''; voceDisse(t); } else estado('pronto');
@@ -231,7 +238,7 @@ function tocarParaFalar(){
   if (ouvindo){ try { rec.stop(); } catch {} return; }
   if ('speechSynthesis' in window) speechSynthesis.cancel();
   try { head && head.stopSpeaking(); } catch {}
-  try { ouvido = ''; rec.lang = recLang(); rec.start(); ouvindo = true; estado('ouvindo'); }
+  try { modoSom('play-and-record'); ouvido = ''; rec.lang = recLang(); rec.start(); ouvindo = true; estado('ouvindo'); }
   catch { $('dica').textContent = T().naoEntendi; }
 }
 
@@ -296,7 +303,7 @@ try {
   head = new TalkingHead($('avatar'), {
     lipsyncModules: [], lipsyncLang: 'pt_br',
     cameraView: 'upper', avatarMood: 'neutral', modelFPS: 30,
-    mixerGainSpeech: 2.5   // volume mais alto da voz (iPhone toca baixo)
+    mixerGainSpeech: 3   // volume mais alto da voz (idosos escutam menos)
   });
   head.lipsync['pt_br'] = new LipsyncPt_br();
   load(current);

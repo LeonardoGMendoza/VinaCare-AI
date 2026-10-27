@@ -166,7 +166,9 @@ def falar(t: TextoVoz, request: Request):
     if voz is None:
         raise HTTPException(503, "Voz da nuvem não configurada.")
     try:
-        audio = voz(t.texto, VOZES.get(t.idioma, VOZES["pt"]).get(t.assistente, VOZES["pt"]["Clara"]))
+        nome_voz = VOZES.get(t.idioma, VOZES["pt"]).get(t.assistente, VOZES["pt"]["Clara"])
+        # na aula de inglês fala mais devagar, para dar tempo de entender
+        audio = voz(t.texto, nome_voz, "-25%") if t.idioma == "aula" else voz(t.texto, nome_voz)
     except Exception as erro:  # noqa: BLE001
         import logging
         logging.getLogger("vinacare").warning("Voz da Oracle falhou: %s: %s", type(erro).__name__, str(erro)[:300])
