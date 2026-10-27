@@ -51,8 +51,9 @@ let idoso = guarda.get('vina-id');
 if (!idoso){ idoso = 'p' + Math.random().toString(36).slice(2, 12); guarda.set('vina-id', idoso); }
 
 const status = (t) => { $('status').hidden = !t; if (t) $('status').textContent = t; };
-function estado(e){                       // pronto | ouvindo | pensando | falando
+function estado(e){                       // carregando | pronto | ouvindo | pensando | falando
   $('mic').dataset.estado = e;
+  if (e === 'carregando') return;
   $('dica').textContent = e === 'ouvindo' ? T().ouvindo : e === 'pensando' ? T().pensando : e === 'pronto' ? (!cumprimentou ? T().comecar : aula ? T().tocarAula : T().tocar) : '';
 }
 function aplicarIdioma(){
@@ -69,24 +70,48 @@ function aplicarIdioma(){
 }
 
 // ---------- Avatar ----------
+// Foto do avatar: mostrada na hora enquanto o 3D carrega (nada de tela preta).
+// Na primeira vez usa a foto que vem com o app; depois, uma foto tirada do próprio 3D neste aparelho.
+function mostrarFoto(key){
+  const f = $('poster');
+  f.onerror = () => { f.hidden = true; };
+  f.src = guarda.get('vina-foto-' + key) || ('./avatars/' + key + '.jpg');
+  f.hidden = false; f.classList.remove('sumir');
+}
+function esconderFoto(){ const f = $('poster'); f.classList.add('sumir'); setTimeout(() => { f.hidden = true; }, 700); }
+function guardarFoto(key){
+  try {
+    head.renderer.render(head.scene, head.camera);
+    const c = head.renderer.domElement, w = 540, h = Math.round(c.height * w / c.width);
+    const t = document.createElement('canvas'); t.width = w; t.height = h;
+    t.getContext('2d').drawImage(c, 0, 0, w, h);
+    guarda.set('vina-foto-' + key, t.toDataURL('image/jpeg', 0.8));
+  } catch {}
+}
 async function load(key){
   if (loading) return;
   loading = true; current = key; guarda.set('vina-avatar', key);
   $('trocaAvatar').textContent = NOMES[key];
-  status(T().carregando + ' 0%');
+  mostrarFoto(key);
+  estado('carregando');
+  const progresso = (n) => { $('dica').textContent = T().carregando + (n >= 0 ? ' ' + n + '%' : ''); };
+  progresso(0);
   try {
     await head.showAvatar(AVATARS[key], ev => {
-      if (ev.lengthComputable) status(T().carregando + ' ' + Math.round(ev.loaded / ev.total * 100) + '%');
+      if (ev.lengthComputable) progresso(Math.round(ev.loaded / ev.total * 100));
+      else if (ev.loaded) progresso(-1);
     });
     head.setView('upper');
     status('');
+    setTimeout(() => { esconderFoto(); setTimeout(() => guardarFoto(key), 1500); }, 300);
+    loading = false;
     estado('pronto');
     if (cumprimentou) cumprimentar();   // trocou de avatar: o novo também diz oi
   } catch (e) {
     console.error(e);
     status(T().erroAvatar);
+    loading = false;
   }
-  loading = false;
 }
 // Expressão do rosto conforme o tom da resposta (a IA demonstra empatia; ela não sente)
 const HUMOR = { feliz: 'happy', carinho: 'love', triste: 'sad', neutro: 'neutral' };
