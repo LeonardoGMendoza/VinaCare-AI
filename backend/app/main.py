@@ -42,12 +42,17 @@ def limitar(request: Request, maximo=30, janela=60):
     fila.append(agora)
 
 
-VOZES = {"Clara": "pt-BR-FranciscaNeural", "Rafael": "pt-BR-AntonioNeural"}
+VOZES = {  # vozes neurais da Azure por idioma
+    "pt": {"Clara": "pt-BR-FranciscaNeural", "Rafael": "pt-BR-AntonioNeural"},
+    "es": {"Clara": "es-PE-CamilaNeural", "Rafael": "es-PE-AlexNeural"},
+    "en": {"Clara": "en-US-JennyNeural", "Rafael": "en-US-GuyNeural"},
+}
 
 
 class TextoVoz(BaseModel):
     texto: str = Field(..., min_length=1, max_length=600)
     assistente: str = Field("Clara", max_length=20)
+    idioma: str = Field("pt", max_length=5)
 
 
 class Fala(BaseModel):
@@ -55,6 +60,7 @@ class Fala(BaseModel):
     nome: str = Field("", max_length=60)
     texto: str = Field(..., min_length=1, max_length=500)
     assistente: str = Field("Clara", max_length=20)
+    idioma: str = Field("pt", max_length=5)
 
 
 def checar(idoso):
@@ -71,7 +77,7 @@ def saude():
 def conversa(f: Fala, request: Request):
     limitar(request)
     checar(f.idoso)
-    return clara.conversar(f.idoso, f.nome, f.texto, f.assistente)
+    return clara.conversar(f.idoso, f.nome, f.texto, f.assistente, f.idioma)
 
 
 @app.get("/api/alertas/{idoso}")
@@ -99,7 +105,7 @@ def falar(t: TextoVoz, request: Request):
     if voz is None:
         raise HTTPException(503, "Voz da nuvem não configurada.")
     try:
-        audio = voz(t.texto, VOZES.get(t.assistente))
+        audio = voz(t.texto, VOZES.get(t.idioma, VOZES["pt"]).get(t.assistente, VOZES["pt"]["Clara"]))
     except Exception as erro:  # noqa: BLE001
         import logging
         logging.getLogger("vinacare").warning("Voz da Oracle falhou: %s: %s", type(erro).__name__, str(erro)[:300])

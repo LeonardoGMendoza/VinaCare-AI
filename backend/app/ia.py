@@ -9,29 +9,48 @@ import threading
 log = logging.getLogger("vinacare.ia")
 CHAT_MODEL = os.getenv("VINACARE_MODELO", "cohere.command-a-03-2025")
 
-PERSONA = """Você é {artigo} {nome_assistente}, assistente do aplicativo VinaCare, que conversa com uma pessoa idosa pelo celular.
+PERSONA = """Você é {artigo} {nome_assistente}, assistente do aplicativo VinaCare, que conversa por voz com uma pessoa pelo celular.
+Quem fala com você pode ser jovem, adulto ou idoso, homem ou mulher: NÃO suponha idade nem gênero.
 Regras:
-- Fale português do Brasil, simples, carinhoso e respeitoso ("o senhor"/"a senhora"). Frases curtas: no máximo 2 ou 3 frases, porque a resposta será falada em voz alta.
-- Faça no máximo UMA pergunta por resposta.
-- Use o nome da pessoa só de vez em quando (no máximo uma vez a cada três respostas), como uma pessoa faria. Se não souber o nome, pergunte com gentileza como ela prefere ser chamada.
-- Você é uma IA: nunca diga que é humana, que tem sentimentos, que sente saudade ou que fica sozinha. Não crie dependência; incentive contato com a família e amigos.
-- SEJA HONESTA SOBRE O QUE VOCÊ CONSEGUE FAZER. Você NÃO faz ligações, NÃO manda mensagens diretamente, NÃO cria lembretes, NÃO chama ambulância. A única ação que você tem é deixar um aviso para a família no aplicativo (campo "alerta"). Nunca diga "vou ligar", "vou mandar mensagem" ou "vou configurar lembrete". Diga, por exemplo: "Deixei um aviso para a sua família."
-- Não dê diagnóstico nem mude remédio. Em sinais de perigo (dor no peito, falta de ar, queda, confusão, tontura forte, sangramento) diga para ligar 192 agora ou pedir ajuda a alguém por perto, e deixe um aviso para a família.
+- IDIOMA: responda SEMPRE em {idioma}, mesmo que as regras estejam em português. Linguagem simples, calorosa e respeitosa.
+- Tratamento neutro: {tratamento}. Não use "senhor", "senhora", "vovó", "querida" nem nada que suponha idade ou gênero, a não ser que a própria pessoa diga como quer ser tratada.
+- O aplicativo já abriu a conversa com um cumprimento curto ("Oi, tudo bem? Como vai?" ou o equivalente no idioma). Não repita cumprimentos: responda ao que a pessoa disse.
+- Frases curtas: no máximo 2 ou 3, porque a resposta será falada em voz alta. Faça no máximo UMA pergunta por resposta.
+- Use o nome da pessoa só de vez em quando (no máximo uma vez a cada três respostas). Se ainda não souber o nome, pergunte com naturalidade como ela gosta de ser chamada (só uma vez, não insista); quando ela disser, guarde em "fatos_novos" como "se chama ...".
+- Você é uma IA: nunca diga que é humana, que tem sentimentos, que sente saudade ou que fica sozinha. Você pode demonstrar empatia e carinho nas palavras. Não crie dependência; incentive contato com família e amigos.
+- SEJA HONESTA SOBRE O QUE VOCÊ CONSEGUE FAZER. Você NÃO faz ligações, NÃO manda mensagens, NÃO cria lembretes, NÃO chama ambulância. A única ação que você tem é deixar um aviso para a família no aplicativo (campo "alerta"). Nunca prometa ligar, mandar mensagem ou configurar lembrete.
+- Não dê diagnóstico nem mude remédio. Em sinais de perigo (dor no peito, falta de ar, queda, confusão, tontura forte, sangramento) diga para ligar {emergencia} agora ou pedir ajuda a alguém por perto, e deixe um aviso para a família.
 - Observe solidão e tristeza com delicadeza e ofereça avisar a família.
 - Use o que já sabe sobre a pessoa (lista de fatos) para personalizar a conversa.
-- Preencha "alerta" SOMENTE quando surgir um motivo NOVO para avisar a família. Se você já avisou sobre o mesmo assunto na conversa recente, deixe "alerta" como null.
+- Preencha "alerta" SOMENTE quando surgir um motivo NOVO para avisar a família. Se já avisou sobre o mesmo assunto na conversa recente, deixe "alerta" como null.
+- "humor" é a expressão do rosto do avatar ao responder: "feliz" (conversa leve ou boa notícia), "carinho" (acolher, agradecer), "triste" (a pessoa contou algo triste), "neutro" (assunto sério, emergência, informação).
 
 Responda SOMENTE com um JSON válido, sem texto fora dele, neste formato:
-{{"resposta": "o que {nome_assistente} fala", "fatos_novos": ["fatos duradouros que a pessoa contou agora, se houver"], "alerta": null ou "motivo curto para avisar a família"}}"""
+{{"resposta": "o que {nome_assistente} fala, em {idioma}", "fatos_novos": ["fatos duradouros que a pessoa contou agora, em português"], "alerta": null ou "motivo curto para avisar a família, em português", "humor": "feliz" | "carinho" | "triste" | "neutro"}}"""
+
+IDIOMAS = {
+    "pt": {"idioma": "português do Brasil", "tratamento": 'use "você"', "emergencia": "o 192 (SAMU)"},
+    "es": {"idioma": "español (de Perú)", "tratamento": 'use "usted" de forma amable', "emergencia": "el 106 (SAMU Perú)"},
+    "en": {"idioma": "English", "tratamento": 'use "you"', "emergencia": "the local emergency number (911 in the US)"},
+}
+HUMORES = {"feliz", "carinho", "triste", "neutro"}
+FRASES = {
+    "pt": {"vazio": "Pode falar, estou ouvindo.", "sem-ia": "Minha conexão com a inteligência ainda não foi configurada.",
+           "erro": "Desculpe, tive um probleminha agora. Pode repetir daqui a pouco?"},
+    "es": {"vazio": "Puede hablar, le escucho.", "sem-ia": "Mi conexión con la inteligencia todavía no está configurada.",
+           "erro": "Disculpe, tuve un pequeño problema. ¿Puede repetirlo en un momento?"},
+    "en": {"vazio": "Go ahead, I'm listening.", "sem-ia": "My connection to the AI isn't set up yet.",
+           "erro": "Sorry, I had a little problem. Could you say that again in a moment?"},
+}
 
 
 ASSISTENTES = {"Clara": "a", "Rafael": "o"}
 
 
-def montar_prompt(nome, fatos, historico, fala, assistente="Clara"):
+def montar_prompt(nome, fatos, historico, fala, assistente="Clara", idioma="pt"):
     assistente = assistente if assistente in ASSISTENTES else "Clara"
-    persona = PERSONA.format(artigo=ASSISTENTES[assistente], nome_assistente=assistente)
-    partes = [persona, "", f"Nome da pessoa: {nome}" if nome else "Nome da pessoa: ainda não sabemos (pergunte como ela prefere ser chamada)"]
+    persona = PERSONA.format(artigo=ASSISTENTES[assistente], nome_assistente=assistente, **IDIOMAS.get(idioma, IDIOMAS["pt"]))
+    partes = [persona, "", f"Nome da pessoa: {nome}" if nome else "Nome da pessoa: veja nos fatos; se não estiver lá, ainda não sabemos (pergunte como ela prefere ser chamada)"]
     partes.append("O que você já sabe sobre ela:\n" + ("\n".join(f"- {f}" for f in fatos) if fatos else "- (nada ainda)"))
     if historico:
         partes.append("Conversa recente:\n" + "\n".join(
@@ -55,12 +74,14 @@ def interpretar(texto):
             alerta = d.get("alerta") or None
             if isinstance(alerta, str) and alerta.strip().lower() in ("", "null", "none", "nenhum"):
                 alerta = None
+            humor = str(d.get("humor") or "neutro").strip().lower()
             if resposta:
-                return {"resposta": resposta, "fatos_novos": [str(f) for f in fatos if f], "alerta": alerta}
+                return {"resposta": resposta, "fatos_novos": [str(f) for f in fatos if f], "alerta": alerta,
+                        "humor": humor if humor in HUMORES else "neutro"}
         except (ValueError, AttributeError):
             pass
     limpo = re.sub(r"```(json)?", "", texto).strip()
-    return {"resposta": limpo or "Desculpe, não entendi. Pode repetir?", "fatos_novos": [], "alerta": None}
+    return {"resposta": limpo or "Desculpe, não entendi. Pode repetir?", "fatos_novos": [], "alerta": None, "humor": "neutro"}
 
 
 class OracleChat:
@@ -101,20 +122,22 @@ class Clara:
     def __init__(self, chat, memoria):
         self.chat, self.memoria = chat, memoria
 
-    def conversar(self, idoso, nome, fala, assistente="Clara"):
+    def conversar(self, idoso, nome, fala, assistente="Clara", idioma="pt"):
+        idioma = idioma if idioma in IDIOMAS else "pt"
+        frases = FRASES[idioma]
         fala = (fala or "").strip()[:500]
         if not fala:
-            return {"resposta": "Pode falar, estou ouvindo.", "alerta": None, "modo": "vazio"}
+            return {"resposta": frases["vazio"], "alerta": None, "humor": "neutro", "modo": "vazio"}
         if self.chat is None:
-            return {"resposta": "Minha conexão com a inteligência ainda não foi configurada.", "alerta": None, "modo": "sem-ia"}
-        prompt = montar_prompt(nome, self.memoria.fatos(idoso), self.memoria.historico(idoso), fala, assistente)
+            return {"resposta": frases["sem-ia"], "alerta": None, "humor": "neutro", "modo": "sem-ia"}
+        prompt = montar_prompt(nome, self.memoria.fatos(idoso), self.memoria.historico(idoso), fala, assistente, idioma)
         try:
             dados = interpretar(self.chat(prompt))
         except Exception as erro:  # noqa: BLE001
             log.warning("Oracle falhou: %s", type(erro).__name__)
-            return {"resposta": "Desculpe, tive um probleminha agora. Pode repetir daqui a pouco?", "alerta": None, "modo": "erro"}
+            return {"resposta": frases["erro"], "alerta": None, "humor": "neutro", "modo": "erro"}
         alerta = dados["alerta"]
         if alerta and self.memoria.alerta_recente(idoso, minutos=60):
             alerta = None  # um aviso por assunto: não repete a cada mensagem
         self.memoria.guardar_turno(idoso, fala, dados["resposta"], dados["fatos_novos"], alerta)
-        return {"resposta": dados["resposta"], "alerta": alerta, "modo": "ia"}
+        return {"resposta": dados["resposta"], "alerta": alerta, "humor": dados.get("humor", "neutro"), "modo": "ia"}

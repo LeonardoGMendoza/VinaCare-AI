@@ -86,7 +86,8 @@ class AzureVoz:
         if chave in self._cache:
             self._cache.move_to_end(chave)
             return self._cache[chave]
-        ssml = (f'<speak version="1.0" xml:lang="pt-BR"><voice name="{voz}">'
+        lingua = "-".join(voz.split("-")[:2]) or "pt-BR"   # ex.: es-PE-CamilaNeural -> es-PE
+        ssml = (f'<speak version="1.0" xml:lang="{lingua}"><voice name="{voz}">'
                 f'<prosody rate="-8%">{escape(texto)}</prosody></voice></speak>')
         req = urllib.request.Request(self.url, data=ssml.encode("utf-8"), method="POST", headers={
             "Ocp-Apim-Subscription-Key": self.chave,

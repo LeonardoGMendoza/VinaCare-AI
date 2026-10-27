@@ -3,63 +3,105 @@ import { LipsyncPt_br } from './talkinghead/lipsync-pt_br.mjs';
 window.__vinaStarted = true;
 
 const AVATARS = {
-  avaturn: { url: './avatars/avaturn.glb', body: 'F', avatarMood: 'happy', lipsyncLang: 'pt_br',
+  avaturn: { url: './avatars/avaturn.glb', body: 'F', avatarMood: 'neutral', lipsyncLang: 'pt_br',
     retarget: { Hips:{y:0.03}, Spine:{y:0.02}, Spine1:{y:0.02,z:0.01}, Spine2:{y:0.02,z:0.01}, Neck:{z:0.02,y:0.01}, Head:{z:0.02}, LeftShoulder:{rx:-0.5}, RightShoulder:{rx:-0.5}, scaleToHipsLevel:1.0 },
     baseline: { headRotateX:-0.05, eyeBlinkLeft:0.15, eyeBlinkRight:0.15 } },
-  avatarsdk: { url: './avatars/avatarsdk.glb', body: 'M', avatarMood: 'happy', lipsyncLang: 'pt_br',
+  avatarsdk: { url: './avatars/avatarsdk.glb', body: 'M', avatarMood: 'neutral', lipsyncLang: 'pt_br',
     retarget: { Neck:{z:-0.01,rx:-0.15}, Neck1:{z:-0.01,rx:-0.15}, Neck2:{z:-0.01,rx:-0.15}, LeftShoulder:{rz:-0.3}, RightShoulder:{rz:0.3}, scaleToEyesLevel:1.0, origin:{y:-0.1} },
     baseline: { headRotateX:-0.04, eyeBlinkLeft:0.05, eyeBlinkRight:0.05 } }
 };
+const NOMES = { avaturn: 'Clara', avatarsdk: 'Rafael' };
+
+// Idiomas: reconhecimento de voz, voz do aparelho e frases da tela
+const IDIOMAS = {
+  pt: { sigla: 'PT', rec: 'pt-BR', voz: /^pt/i, vozPref: /^pt[-_]br/i, html: 'pt-BR', t: {
+    tocar: 'Toque e fale', comecar: 'Toque para começar', ola: 'Oi, tudo bem? Como vai?', ouvindo: 'Estou ouvindo…', pensando: 'Pensando…', naoEntendi: 'Não entendi. Toque e fale de novo.',
+    micBloqueado: 'Libere o microfone no cadeado da barra de endereço.', semMic: 'Este navegador não ouve a voz. Use o Chrome ou o Safari.',
+    carregando: 'Carregando…', erroAvatar: 'Não consegui carregar o avatar. Atualize a página.', erro3d: 'Este navegador não abriu o 3D. Use o Chrome ou o Safari atualizado.',
+    semConexao: 'Estou sem conexão agora. Tente de novo daqui a pouco.', exercicios: 'Exercícios', idioma: 'Idioma', avatar: 'Trocar avatar', falar: 'Falar' } },
+  es: { sigla: 'ES', rec: 'es-PE', voz: /^es/i, vozPref: /^es[-_](pe|419|us|mx)/i, html: 'es-PE', t: {
+    tocar: 'Toque y hable', comecar: 'Toque para empezar', ola: '¡Hola! ¿Cómo estás?', ouvindo: 'Le escucho…', pensando: 'Pensando…', naoEntendi: 'No entendí. Toque y hable otra vez.',
+    micBloqueado: 'Permita el micrófono en el candado de la barra de direcciones.', semMic: 'Este navegador no escucha la voz. Use Chrome o Safari.',
+    carregando: 'Cargando…', erroAvatar: 'No pude cargar el avatar. Actualice la página.', erro3d: 'Este navegador no abrió el 3D. Use Chrome o Safari actualizado.',
+    semConexao: 'Ahora no tengo conexión. Intente de nuevo en un momento.', exercicios: 'Ejercicios', idioma: 'Idioma', avatar: 'Cambiar avatar', falar: 'Hablar' } },
+  en: { sigla: 'EN', rec: 'en-US', voz: /^en/i, vozPref: /^en[-_]us/i, html: 'en', t: {
+    tocar: 'Tap and speak', comecar: 'Tap to start', ola: 'Hi! How are you?', ouvindo: "I'm listening…", pensando: 'Thinking…', naoEntendi: "I didn't catch that. Tap and speak again.",
+    micBloqueado: 'Allow the microphone in the lock icon of the address bar.', semMic: "This browser can't hear voice. Use Chrome or Safari.",
+    carregando: 'Loading…', erroAvatar: "I couldn't load the avatar. Refresh the page.", erro3d: "This browser couldn't open 3D. Use an updated Chrome or Safari.",
+    semConexao: "I'm offline right now. Please try again in a moment.", exercicios: 'Exercises', idioma: 'Language', avatar: 'Change avatar', falar: 'Speak' } },
+};
+const ORDEM = ['pt', 'es', 'en'];
 
 const $ = id => document.getElementById(id);
-const status = (t) => { $('status').hidden = !t; if (t) $('status').textContent = t; };
-let head = null, current = 'avaturn', loading = false;
-const NOMES = { avaturn: 'Clara', avatarsdk: 'Rafael' };
-const assistente = () => NOMES[current] || 'Clara';
+const guarda = { get(k){ try { return localStorage.getItem(k); } catch { return null; } },
+                 set(k, v){ try { localStorage.setItem(k, v); } catch {} } };
+const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
+let head = null, current = guarda.get('vina-avatar') === 'avatarsdk' ? 'avatarsdk' : 'avaturn', loading = false;
+let idioma = IDIOMAS[guarda.get('vina-idioma')] ? guarda.get('vina-idioma') : 'pt';
+let rec = null, ouvindo = false, ouvido = '', cumprimentou = false;
+const T = () => IDIOMAS[idioma].t;
+const assistente = () => NOMES[current] || 'Clara';
+let idoso = guarda.get('vina-id');
+if (!idoso){ idoso = 'p' + Math.random().toString(36).slice(2, 12); guarda.set('vina-id', idoso); }
+
+const status = (t) => { $('status').hidden = !t; if (t) $('status').textContent = t; };
+function estado(e){                       // pronto | ouvindo | pensando | falando
+  $('mic').dataset.estado = e;
+  $('dica').textContent = e === 'ouvindo' ? T().ouvindo : e === 'pensando' ? T().pensando : e === 'pronto' ? (cumprimentou ? T().tocar : T().comecar) : '';
+}
+function aplicarIdioma(){
+  document.documentElement.lang = IDIOMAS[idioma].html;
+  $('trocaIdioma').textContent = IDIOMAS[idioma].sigla;
+  $('trocaIdioma').setAttribute('aria-label', T().idioma + ': ' + IDIOMAS[idioma].sigla);
+  $('trocaAvatar').setAttribute('aria-label', T().avatar);
+  $('linkExercicio').setAttribute('aria-label', T().exercicios);
+  $('mic').setAttribute('aria-label', T().falar);
+  $('palco').setAttribute('aria-label', T().tocar);
+  if (rec) rec.lang = IDIOMAS[idioma].rec;
+  if ($('mic').dataset.estado === 'pronto') estado('pronto');
+}
+
+// ---------- Avatar ----------
 async function load(key){
   if (loading) return;
-  loading = true; current = key;
-  document.querySelectorAll('[data-av]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.av === key)));
-  const t = document.getElementById('convTitulo'); if (t) t.textContent = 'Converse com ' + (key === 'avatarsdk' ? 'ele' : 'ela');
-  status('Carregando o avatar… 0%');
+  loading = true; current = key; guarda.set('vina-avatar', key);
+  $('trocaAvatar').textContent = NOMES[key];
+  status(T().carregando + ' 0%');
   try {
     await head.showAvatar(AVATARS[key], ev => {
-      if (ev.lengthComputable) status('Carregando o avatar… ' + Math.round(ev.loaded / ev.total * 100) + '%');
-      else if (ev.loaded) status('Carregando o avatar… ' + (ev.loaded / 1e6).toFixed(1) + ' MB');
+      if (ev.lengthComputable) status(T().carregando + ' ' + Math.round(ev.loaded / ev.total * 100) + '%');
     });
     head.setView('upper');
     status('');
+    estado('pronto');
+    if (cumprimentou) cumprimentar();   // trocou de avatar: o novo também diz oi
   } catch (e) {
     console.error(e);
-    status('Não consegui carregar o avatar. Atualize a página e tente de novo.');
+    status(T().erroAvatar);
   }
   loading = false;
 }
+// Expressão do rosto conforme o tom da resposta (a IA demonstra empatia; ela não sente)
+const HUMOR = { feliz: 'happy', carinho: 'love', triste: 'sad', neutro: 'neutral' };
+function humor(h){ try { head && head.setMood(HUMOR[h] || 'neutral'); } catch {} }
 
-// Vozes em português do aparelho
+// ---------- Voz ----------
 function vozNota(v){
-  // Prefere vozes de alta qualidade em português do Brasil
-  const n = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+  const n = (v.name + ' ' + (v.voiceURI || '')).toLowerCase(), I = IDIOMAS[idioma];
   let p = 0;
-  if (/^pt[-_]br/i.test(v.lang)) p += 100; else if (/^pt/i.test(v.lang)) p += 10;
+  if (I.vozPref.test(v.lang)) p += 100; else if (I.voz.test(v.lang)) p += 10;
   if (/premium/.test(n)) p += 50;
   if (/enhanced|aprimorad|natural|neural|online/.test(n)) p += 40;
-  if (/luciana|francisca|thalita|google portugu/.test(n)) p += 15;
   if (/compact|eloquence|novelty/.test(n)) p -= 30;
   return p;
 }
-function fillVoices(){
-  const vs = (speechSynthesis.getVoices() || []).filter(v => /^pt/i.test(v.lang));
-  const sel = $('voice'); const prev = sel.value; sel.innerHTML = '';
-  if (!vs.length){ const o = document.createElement('option'); o.textContent = 'Padrão do aparelho'; o.value = ''; sel.appendChild(o); return; }
-  vs.sort((a,b) => vozNota(b) - vozNota(a));
-  vs.forEach(v => { const o = document.createElement('option'); o.value = v.name; o.textContent = v.name.replace(/Microsoft |Google /,'') + ' (' + v.lang + ')'; sel.appendChild(o); });
-  if (prev && vs.some(v => v.name === prev)) sel.value = prev;
+function melhorVoz(){
+  const vs = ('speechSynthesis' in window ? speechSynthesis.getVoices() : []).filter(v => IDIOMAS[idioma].voz.test(v.lang));
+  return vs.sort((a, b) => vozNota(b) - vozNota(a))[0] || null;
 }
-if ('speechSynthesis' in window){ fillVoices(); speechSynthesis.onvoiceschanged = fillVoices; }
+if ('speechSynthesis' in window) speechSynthesis.getVoices();
 
-// Tempo estimado de cada palavra (ms) para a boca acompanhar a voz
 function timings(text){
   const words = text.trim().split(/\s+/).filter(Boolean);
   const wtimes = [], wdurations = []; let t = 120;
@@ -71,172 +113,138 @@ function timings(text){
   }
   return { words, wtimes, wdurations, total: t + 200 };
 }
-
-// Voz da nuvem (Oracle): áudio de verdade, igual em qualquer celular, com a boca sincronizada.
 function decodificar(ctx, dados){
   return new Promise((ok, erro) => { try { const p = ctx.decodeAudioData(dados, ok, erro); if (p && p.then) p.then(ok, erro); } catch (e) { erro(e); } });
 }
+const espera = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Voz neural da nuvem (Azure pelo back-end): igual em qualquer celular, com a boca sincronizada.
 async function sayNuvem(text){
-  const r = await fetch(API + '/api/voz', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto: text, assistente: assistente() }) });
+  const r = await fetch(API + '/api/voz', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ texto: text, assistente: assistente(), idioma }) });
   if (!r.ok) throw new Error('voz HTTP ' + r.status);
   const buf = await decodificar(head.audioCtx, await r.arrayBuffer());
   const tm = timings(text);
-  const k = (buf.duration * 1000) / tm.total;   // ajusta o tempo das palavras ao áudio real
+  const k = (buf.duration * 1000) / tm.total;
   head.speakAudio({ audio: buf, words: tm.words, wtimes: tm.wtimes.map(t => t * k), wdurations: tm.wdurations.map(t => t * k) }, { lipsyncLang: 'pt_br' });
-  setTimeout(() => { $('sub').textContent = ''; }, buf.duration * 1000 + 600);
+  return buf.duration * 1000;
 }
 let nuvemFalhou = false;
-// iPhone/iPad: o Safari só libera vozes robóticas para sites, então usa a voz da nuvem.
-// Android e computador: usam a voz do aparelho quando ela é boa (economiza a cota da nuvem).
 const ehIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function precisaNuvem(){
-  if (ehIOS) return true;
-  if (!('speechSynthesis' in window)) return true;
-  const vs = (speechSynthesis.getVoices() || []).filter(v => /^pt/i.test(v.lang));
-  const melhor = vs.reduce((m, v) => Math.max(m, vozNota(v)), -999);
-  return melhor < 100;
+  if (ehIOS || !('speechSynthesis' in window)) return true;
+  const v = melhorVoz();
+  return !v || vozNota(v) < 100;
+}
+function sayAparelho(text){
+  const tm = timings(text);
+  const ctx = head.audioCtx;
+  const silent = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * tm.total / 1000), ctx.sampleRate);
+  const startLips = () => head.speakAudio({ audio: silent, words: tm.words, wtimes: tm.wtimes, wdurations: tm.wdurations }, { lipsyncLang: 'pt_br' });
+  if ('speechSynthesis' in window){
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = IDIOMAS[idioma].rec; u.rate = 0.92;
+    const v = melhorVoz(); if (v) u.voice = v;
+    let started = false;
+    u.onstart = () => { if (!started){ started = true; startLips(); } };
+    setTimeout(() => { if (!started){ started = true; startLips(); } }, 700);
+    speechSynthesis.speak(u);
+  } else startLips();
+  return tm.total;
 }
 async function say(text){
   text = (text || '').trim();
   if (!text || !head || loading) return;
   try { head.audioCtx.resume(); } catch {}
-  if (API && !nuvemFalhou && precisaNuvem()){
-    try { head.stopSpeaking(); } catch {}
-    if ('speechSynthesis' in window) speechSynthesis.cancel();
-    $('sub').textContent = text;
-    try { await sayNuvem(text); return; }
-    catch (e) { console.warn('Voz da nuvem indisponível, usando a voz do aparelho', e); nuvemFalhou = true; setTimeout(() => { nuvemFalhou = false; }, 60000); }
-  }
-  sayAparelho(text);
-}
-function sayAparelho(text){
-  try { head.audioCtx.resume(); } catch {}
   try { head.stopSpeaking(); } catch {}
   if ('speechSynthesis' in window) speechSynthesis.cancel();
-  $('sub').textContent = text;
-
-  const tm = timings(text);
-  const ctx = head.audioCtx;
-  const silent = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * tm.total / 1000), ctx.sampleRate);
-  const startLips = () => head.speakAudio({ audio: silent, words: tm.words, wtimes: tm.wtimes, wdurations: tm.wdurations }, { lipsyncLang: 'pt_br' });
-
-  if ('speechSynthesis' in window){
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'pt-BR'; u.rate = 0.92; u.volume = 1; u.pitch = 1;
-    const v = speechSynthesis.getVoices().find(x => x.name === $('voice').value);
-    if (v) u.voice = v;
-    let started = false;
-    u.onstart = () => { if (!started){ started = true; startLips(); } };
-    setTimeout(() => { if (!started){ started = true; startLips(); } }, 700);
-    u.onend = () => setTimeout(() => { $('sub').textContent = ''; }, 600);
-    speechSynthesis.speak(u);
-  } else {
-    startLips();
-    setTimeout(() => { $('sub').textContent = ''; }, tm.total + 600);
+  estado('falando');
+  let duracao;
+  if (API && !nuvemFalhou && precisaNuvem()){
+    try { duracao = await sayNuvem(text); }
+    catch (e) { console.warn('Voz da nuvem indisponível', e); nuvemFalhou = true; setTimeout(() => { nuvemFalhou = false; }, 60000); }
   }
+  if (duracao === undefined) duracao = sayAparelho(text);
+  await espera(duracao + 300);
+  if ($('mic').dataset.estado === 'falando') estado('pronto');
 }
 
-// ---------- Conversa ----------
-function addMsg(who, text){
-  const d = document.createElement('div');
-  d.className = 'msg ' + who; d.textContent = text;
-  $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight;
-}
-function falaEla(text){ addMsg('ela', text); say(text); }
-
-// Respostas simples (modo demonstração). No próximo passo: IA da nuvem.
-const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-function responder(fala){
-  const t = norm(fala);
-  if (/(sozinh|solidao|ninguem|saudade|abandon)/.test(t)) return 'Sinto muito que a senhora esteja se sentindo assim. Quer que eu mande uma mensagem para a sua família pedindo uma ligação hoje?';
-  if (/(\bdor\b|\bdores\b|doendo|tontura|tonta|passando mal|\bcai\b|\bcaiu\b|queda)/.test(t)) return 'Isso é importante. Vou avisar a sua família agora. Se a dor for forte, ligue para o 192. A senhora está sozinha em casa?';
-  if (/(remedio|tomei|comprimido)/.test(t)) return /(nao|esqueci)/.test(t) ? 'Tudo bem. Vamos tomar agora? Pegue o comprimido das oito com um copo de água, eu espero.' : 'Muito bem! Anotei que a senhora tomou o remédio. Sua família vai ficar tranquila.';
-  if (/(exercicio|braco|cansad)/.test(t)) return 'Vamos devagar, no seu ritmo. Levante os dois braços bem alto e conte comigo: um, dois, três.';
-  if (/(dormi|dormiu|sono|noite)/.test(t)) return /(mal|pouco|nao)/.test(t) ? 'Que pena. Quer me contar o que atrapalhou o sono? Hoje à tarde podemos descansar um pouco.' : 'Que bom! Dormir bem faz toda a diferença. E o café da manhã, já tomou?';
-  if (/(sim|quero|pode|claro|isso)/.test(t)) return 'Combinado! Já estou avisando. Enquanto isso, me conta: o que a senhora gostaria de fazer hoje?';
-  if (/(nao|agora nao)/.test(t)) return 'Tudo bem, a senhora que manda. Estou aqui se precisar.';
-  if (/(bem|otimo|feliz|alegre|bom)/.test(t)) return 'Que alegria ouvir isso! O que deixou o seu dia bom?';
-  if (/(triste|chorei|chorando|desanim)/.test(t)) return 'Obrigada por me contar. Quer conversar um pouco sobre isso, ou prefere que eu chame alguém da família?';
-  if (/(comi|almoco|almocei|jantar|cafe)/.test(t)) return 'Hum, que delícia! Comer bem dá energia. Já bebeu água hoje?';
-  return 'Entendi. Me conta um pouco mais sobre isso?';
-}
-// IA da Oracle pelo back-end do VinaCare (se configurado). Sem back-end: respostas de demonstração.
-const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-// Cada celular tem a sua pessoa: um código próprio e o nome que ela escolher (guardados só no aparelho)
-const guarda = { get(k){ try { return localStorage.getItem(k); } catch { return null; } },
-                 set(k, v){ try { localStorage.setItem(k, v); } catch {} } };
-let idoso = guarda.get('vina-id');
-if (!idoso){ idoso = 'p' + Math.random().toString(36).slice(2, 12); guarda.set('vina-id', idoso); }
-$('nome').value = guarda.get('vina-nome') || '';
-$('nome').addEventListener('change', () => guarda.set('vina-nome', $('nome').value.trim()));
+// ---------- Conversa: a pessoa sempre fala primeiro ----------
 async function voceDisse(text){
-  text = (text || '').trim(); if (!text) return;
-  addMsg('voce', text);
-  if (!API){ setTimeout(() => falaEla(responder(text)), 400); return; }
-  $('micinfo').textContent = 'A Clara está pensando…';
+  text = (text || '').trim(); if (!text) { estado('pronto'); return; }
+  estado('pensando');
   try {
-    const r = await fetch(API + '/api/conversa', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idoso, nome: $('nome').value.trim(), texto: text, assistente: assistente() })
-    });
+    if (!API) throw new Error('sem API');
+    const r = await fetch(API + '/api/conversa', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idoso, nome: '', texto: text, assistente: assistente(), idioma }) });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
-    falaEla(d.resposta);
-    if (d.alerta) addMsg('alerta', 'Aviso para a família: ' + d.alerta);
+    humor(d.humor);
+    await say(d.resposta);
   } catch (e) {
-    console.warn('API indisponível, usando respostas de demonstração', e);
-    falaEla(responder(text));
-  } finally {
-    $('micinfo').textContent = 'Toque, fale e espere ela responder.';
+    console.warn('Conversa indisponível', e);
+    humor('neutro');
+    await say(T().semConexao);
   }
 }
 
 // Reconhecimento de voz do navegador (Chrome e Safari)
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null, ouvindo = false;
-if (!SR){
-  $('mic').disabled = true;
-  $('micinfo').textContent = 'Este navegador não ouve a voz. Use o Chrome ou o Safari, ou responda escrevendo.';
-} else {
-  rec = new SR(); rec.lang = 'pt-BR'; rec.interimResults = true; rec.continuous = false;
+if (SR){
+  rec = new SR(); rec.lang = IDIOMAS[idioma].rec; rec.interimResults = true; rec.continuous = false;
   rec.onresult = (e) => {
     let txt = '', final = false;
     for (const r of e.results){ txt += r[0].transcript; if (r.isFinal) final = true; }
-    $('micinfo').textContent = '“' + txt + '”';
-    if (final){ pararMic(); voceDisse(txt); $('micinfo').textContent = 'Toque, fale e espere ela responder.'; }
+    ouvido = txt;
+    if (final){ ouvindo = false; const t = ouvido; ouvido = ''; voceDisse(t); }
   };
   rec.onerror = (e) => {
-    pararMic();
-    $('micinfo').textContent = e.error === 'not-allowed' ? 'O microfone foi bloqueado. Libere o microfone no cadeado da barra de endereço.' : 'Não entendi. Toque e fale de novo, mais perto do microfone.';
+    ouvindo = false; ouvido = ''; estado('pronto');
+    $('dica').textContent = e.error === 'not-allowed' ? T().micBloqueado : e.error === 'no-speech' ? T().tocar : T().naoEntendi;
   };
-  rec.onend = () => { if (ouvindo) pararMic(); };
+  rec.onend = () => {
+    if (!ouvindo) return;
+    ouvindo = false;
+    if (ouvido){ const t = ouvido; ouvido = ''; voceDisse(t); } else estado('pronto');
+  };
 }
-function pararMic(){ ouvindo = false; $('mic').setAttribute('aria-pressed','false'); $('mic').textContent = 'Responder falando'; }
-$('mic').addEventListener('click', () => {
-  if (!rec) return;
-  if (ouvindo){ try { rec.stop(); } catch {} pararMic(); return; }
+// A Clara abre a conversa com um "oi" neutro (o navegador só libera o som depois do primeiro toque)
+async function cumprimentar(){
+  cumprimentou = true;
+  humor('feliz');
+  await say(T().ola);
+}
+function tocarParaFalar(){
+  try { head && head.audioCtx.resume(); } catch {}
+  if (!cumprimentou){ if (!loading && head) cumprimentar(); return; }
+  if (!rec){ $('dica').textContent = T().semMic; return; }
+  if ($('mic').dataset.estado === 'pensando' || loading) return;
+  if (ouvindo){ try { rec.stop(); } catch {} return; }
   if ('speechSynthesis' in window) speechSynthesis.cancel();
   try { head && head.stopSpeaking(); } catch {}
-  try { rec.start(); ouvindo = true; $('mic').setAttribute('aria-pressed','true'); $('mic').textContent = 'Ouvindo… toque para parar'; $('micinfo').textContent = 'Pode falar.'; }
-  catch { $('micinfo').textContent = 'Espere um segundo e toque de novo.'; }
+  try { ouvido = ''; rec.lang = IDIOMAS[idioma].rec; rec.start(); ouvindo = true; estado('ouvindo'); }
+  catch { $('dica').textContent = T().naoEntendi; }
+}
+
+// Toque em qualquer lugar da tela (menos nos botões do topo) para falar
+$('palco').addEventListener('click', (ev) => { if (!ev.target.closest('.topo')) tocarParaFalar(); });
+$('trocaIdioma').addEventListener('click', () => {
+  idioma = ORDEM[(ORDEM.indexOf(idioma) + 1) % ORDEM.length];
+  guarda.set('vina-idioma', idioma); aplicarIdioma();
+  if (cumprimentou && !ouvindo) cumprimentar();   // cumprimenta de novo no idioma novo
 });
-$('send').addEventListener('click', () => { voceDisse($('reply').value); $('reply').value = ''; });
-$('reply').addEventListener('keydown', e => { if (e.key === 'Enter'){ voceDisse($('reply').value); $('reply').value = ''; } });
+$('trocaAvatar').addEventListener('click', () => { if (!loading) load(current === 'avaturn' ? 'avatarsdk' : 'avaturn'); });
 
-['touchend','click'].forEach(ev => document.addEventListener(ev, () => { try { head && head.audioCtx.resume(); } catch {} }, { passive: true }));
-document.querySelectorAll('.phr').forEach(b => b.addEventListener('click', () => falaEla(b.textContent)));
-$('speak').addEventListener('click', () => falaEla($('txt').value));
-document.querySelectorAll('[data-av]').forEach(b => b.addEventListener('click', () => { if (b.dataset.av !== current) load(b.dataset.av); }));
-
+aplicarIdioma();
 try {
   head = new TalkingHead($('avatar'), {
     lipsyncModules: [], lipsyncLang: 'pt_br',
-    cameraView: 'upper', avatarMood: 'happy', modelFPS: 30,
+    cameraView: 'upper', avatarMood: 'neutral', modelFPS: 30,
     mixerGainSpeech: 2.5   // volume mais alto da voz (iPhone toca baixo)
   });
-  head.lipsync['pt_br'] = new LipsyncPt_br(); // português do Brasil, carregado direto (sem import dinâmico)
-  load('avaturn');
+  head.lipsync['pt_br'] = new LipsyncPt_br();
+  load(current);
 } catch (e) {
   console.error(e);
-  status('Este navegador não abriu o 3D. Tente no Chrome ou no Safari atualizado.');
+  status(T().erro3d);
 }

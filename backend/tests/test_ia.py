@@ -43,6 +43,24 @@ class TestIA(unittest.TestCase):
     def test_sem_nome_pede_nome(self):
         self.assertIn("pergunte como ela prefere ser chamada", montar_prompt("", [], [], "oi"))
 
+    def test_idioma_e_tratamento_neutro(self):
+        p = montar_prompt("", [], [], "hola", "Rafael", "es")
+        self.assertIn("español", p)
+        self.assertIn("106", p)
+        self.assertIn("NÃO suponha idade nem gênero", p)
+        self.assertIn("English", montar_prompt("", [], [], "hi", "Clara", "en"))
+
+    def test_humor(self):
+        self.assertEqual(interpretar('{"resposta": "Que pena.", "humor": "triste"}')["humor"], "triste")
+        self.assertEqual(interpretar('{"resposta": "Oi", "humor": "furioso"}')["humor"], "neutro")
+
+    def test_erro_no_idioma(self):
+        with tempfile.TemporaryDirectory() as d:
+            mem = Memoria(d)
+            r = Clara(None, mem).conversar("demo", "", "hello", "Clara", "en")
+            self.assertIn("AI", r["resposta"])
+            mem.db.close()
+
     def test_sem_ia(self):
         with tempfile.TemporaryDirectory() as d:
             mem = Memoria(d)
