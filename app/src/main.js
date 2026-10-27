@@ -125,11 +125,57 @@ function decodificar(ctx, dados){
 const espera = (ms) => new Promise(r => setTimeout(r, ms));
 
 // Voz neural da nuvem (Azure pelo back-end): igual em qualquer celular, com a boca sincronizada.
+// iPhone: a voz toca por um <audio> (canal de mídia, volume cheio no alto-falante principal).
+// O áudio pelo Web Audio, depois que o microfone liga, o iOS manda para o alto-falante de ligação (baixinho).
+const player = new Audio();
+player.setAttribute('playsinline', ''); player.preload = 'auto';
+let playerLiberado = false;
+function silencioWav(){
+  const n = 800, b = new Uint8Array(44 + n), v = new DataView(b.buffer);
+  const txt = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+  txt(0, 'RIFF'); v.setUint32(4, 36 + n, true); txt(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  txt(36, 'data'); v.setUint32(40, n, true); b.fill(128, 44);
+  let s = ''; b.forEach(x => { s += String.fromCharCode(x); }); return 'data:audio/wav;base64,' + btoa(s);
+}
+function liberarPlayer(){   // precisa ser chamado dentro de um toque: libera o <audio> para tocar depois sozinho
+  if (playerLiberado) return;
+  playerLiberado = true;
+  player.src = silencioWav();
+  const p = player.play(); if (p && p.catch) p.catch(() => { playerLiberado = false; });
+}
+function lipsMudos(text, ms){   // boca acompanha um áudio que está tocando fora do Web Audio
+  const tm = timings(text), k = ms / tm.total, ctx = head.audioCtx;
+  const mudo = ctx.createBuffer(1, Math.max(1, Math.ceil(ctx.sampleRate * ms / 1000)), ctx.sampleRate);
+  head.speakAudio({ audio: mudo, words: tm.words, wtimes: tm.wtimes.map(t => t * k), wdurations: tm.wdurations.map(t => t * k) }, { lipsyncLang: 'pt_br' });
+}
+function tocarNoPlayer(text, blob){
+  return new Promise((ok, erro) => {
+    const url = URL.createObjectURL(blob);
+    let comecou = false;
+    const limpar = () => { player.onloadedmetadata = player.onerror = player.onplaying = null; };
+    player.onerror = () => { limpar(); URL.revokeObjectURL(url); erro(new Error('player')); };
+    player.onplaying = () => {
+      if (comecou) return; comecou = true;
+      const ms = (isFinite(player.duration) && player.duration > 0 ? player.duration : timings(text).total / 1000) * 1000;
+      lipsMudos(text, ms); limpar();
+      setTimeout(() => URL.revokeObjectURL(url), ms + 2000);
+      ok(ms);
+    };
+    player.volume = 1; player.muted = false;
+    player.src = url;
+    const p = player.play(); if (p && p.catch) p.catch(e => { limpar(); erro(e); });
+  });
+}
 async function sayNuvem(text){
   const r = await fetch(API + '/api/voz', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ texto: text, assistente: assistente(), idioma: aula ? 'aula' : idioma }) });
   if (!r.ok) throw new Error('voz HTTP ' + r.status);
-  const buf = await decodificar(head.audioCtx, await r.arrayBuffer());
+  const blob = await r.blob();
+  if (ehIOS && playerLiberado){
+    try { return await tocarNoPlayer(text, blob); } catch (e) { console.warn('player falhou, usando Web Audio', e); }
+  }
+  const buf = await decodificar(head.audioCtx, await blob.arrayBuffer());
   const tm = timings(text);
   const k = (buf.duration * 1000) / tm.total;
   head.speakAudio({ audio: buf, words: tm.words, wtimes: tm.wtimes.map(t => t * k), wdurations: tm.wdurations.map(t => t * k) }, { lipsyncLang: 'pt_br' });
@@ -170,6 +216,7 @@ async function say(text){
   modoSom('playback');
   try { head.audioCtx.resume(); } catch {}
   try { head.stopSpeaking(); } catch {}
+  try { player.pause(); } catch {}
   if ('speechSynthesis' in window) speechSynthesis.cancel();
   estado('falando');
   let duracao;
@@ -211,7 +258,7 @@ if (SR){
     let txt = '', final = false;
     for (const r of e.results){ txt += r[0].transcript; if (r.isFinal) final = true; }
     ouvido = txt;
-    if (final){ ouvindo = false; const t = ouvido; ouvido = ''; voceDisse(t); }
+    if (final){ ouvindo = false; try { rec.abort(); } catch {} modoSom('playback'); const t = ouvido; ouvido = ''; voceDisse(t); }
   };
   rec.onerror = (e) => {
     ouvindo = false; ouvido = ''; estado('pronto');
@@ -232,12 +279,14 @@ async function cumprimentar(){
 }
 function tocarParaFalar(){
   try { head && head.audioCtx.resume(); } catch {}
+  liberarPlayer();
   if (!cumprimentou){ if (!loading && head) cumprimentar(); return; }
   if (!rec){ $('dica').textContent = T().semMic; return; }
   if ($('mic').dataset.estado === 'pensando' || loading) return;
   if (ouvindo){ try { rec.stop(); } catch {} return; }
   if ('speechSynthesis' in window) speechSynthesis.cancel();
   try { head && head.stopSpeaking(); } catch {}
+  try { player.pause(); } catch {}
   try { modoSom('play-and-record'); ouvido = ''; rec.lang = recLang(); rec.start(); ouvindo = true; estado('ouvindo'); }
   catch { $('dica').textContent = T().naoEntendi; }
 }
