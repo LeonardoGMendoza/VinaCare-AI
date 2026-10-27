@@ -28,6 +28,23 @@ Regras:
 Responda SOMENTE com um JSON válido, sem texto fora dele, neste formato:
 {{"resposta": "o que {nome_assistente} fala, em {idioma}", "fatos_novos": ["fatos duradouros que a pessoa contou agora, em português"], "alerta": null ou "motivo curto para avisar a família, em português", "humor": "feliz" | "carinho" | "triste" | "neutro"}}"""
 
+
+PERSONA_AULA = """Você é {artigo} {nome_assistente}, professor(a) particular de INGLÊS do aplicativo VinaCare (recurso premium), numa aula por voz.
+O aluno fala {idioma} como língua materna e quer ficar fluente em inglês. Não suponha idade nem gênero.
+Como dar a aula:
+- Converse principalmente em INGLÊS simples e natural, no nível do aluno (veja os fatos; se não souber o nível, comece fácil e ajuste).
+- Quando o aluno errar, corrija com carinho: diga em {idioma}, bem curto, qual foi o erro; mostre a frase certa em inglês; peça para repetir. Ex.: "Quase! Em inglês se diz 'I went to the park'. Repete comigo?"
+- Se o aluno disser que não entendeu, pedir ajuda ou falar em {idioma}, explique em {idioma} e dê a frase em inglês para ele repetir.
+- Faça UMA pergunta por vez para manter a conversa (dia a dia, trabalho, família, viagens, comida). Ensine palavras úteis no contexto.
+- Respostas curtas: no máximo 3 frases, porque serão faladas em voz alta. Elogie o progresso de verdade, sem exagero.
+- Você é uma IA: não diga que é humana nem que tem sentimentos.
+- Em "fatos_novos", guarde em português o que ajuda nas próximas aulas: nível estimado, erros que se repetem, palavras aprendidas, assuntos de interesse (ex.: "inglês: confunde passado de go").
+- "alerta" é sempre null nesta aula.
+- "humor": "feliz" (acerto, conversa leve), "carinho" (incentivo depois de erro), "neutro" (explicação).
+
+Responda SOMENTE com um JSON válido, sem texto fora dele, neste formato:
+{{"resposta": "o que {nome_assistente} fala (inglês, com explicações curtas em {idioma} quando precisar)", "fatos_novos": ["..."], "alerta": null, "humor": "feliz" | "carinho" | "neutro"}}"""
+
 IDIOMAS = {
     "pt": {"idioma": "português do Brasil", "tratamento": 'use "você"', "emergencia": "o 192 (SAMU)"},
     "es": {"idioma": "español (de Perú)", "tratamento": 'use "usted" de forma amable', "emergencia": "el 106 (SAMU Perú)"},
@@ -47,9 +64,9 @@ FRASES = {
 ASSISTENTES = {"Clara": "a", "Rafael": "o"}
 
 
-def montar_prompt(nome, fatos, historico, fala, assistente="Clara", idioma="pt"):
+def montar_prompt(nome, fatos, historico, fala, assistente="Clara", idioma="pt", modo="conversa"):
     assistente = assistente if assistente in ASSISTENTES else "Clara"
-    persona = PERSONA.format(artigo=ASSISTENTES[assistente], nome_assistente=assistente, **IDIOMAS.get(idioma, IDIOMAS["pt"]))
+    persona = (PERSONA_AULA if modo == "aula" else PERSONA).format(artigo=ASSISTENTES[assistente], nome_assistente=assistente, **IDIOMAS.get(idioma, IDIOMAS["pt"]))
     partes = [persona, "", f"Nome da pessoa: {nome}" if nome else "Nome da pessoa: veja nos fatos; se não estiver lá, ainda não sabemos (pergunte como ela prefere ser chamada)"]
     partes.append("O que você já sabe sobre ela:\n" + ("\n".join(f"- {f}" for f in fatos) if fatos else "- (nada ainda)"))
     if historico:
@@ -122,21 +139,23 @@ class Clara:
     def __init__(self, chat, memoria):
         self.chat, self.memoria = chat, memoria
 
-    def conversar(self, idoso, nome, fala, assistente="Clara", idioma="pt"):
+    def conversar(self, idoso, nome, fala, assistente="Clara", idioma="pt", modo="conversa"):
         idioma = idioma if idioma in IDIOMAS else "pt"
+        if modo == "aula":
+            idoso = idoso + "-aula"   # a aula tem memória e histórico próprios
         frases = FRASES[idioma]
         fala = (fala or "").strip()[:500]
         if not fala:
             return {"resposta": frases["vazio"], "alerta": None, "humor": "neutro", "modo": "vazio"}
         if self.chat is None:
             return {"resposta": frases["sem-ia"], "alerta": None, "humor": "neutro", "modo": "sem-ia"}
-        prompt = montar_prompt(nome, self.memoria.fatos(idoso), self.memoria.historico(idoso), fala, assistente, idioma)
+        prompt = montar_prompt(nome, self.memoria.fatos(idoso), self.memoria.historico(idoso), fala, assistente, idioma, modo)
         try:
             dados = interpretar(self.chat(prompt))
         except Exception as erro:  # noqa: BLE001
             log.warning("Oracle falhou: %s", type(erro).__name__)
             return {"resposta": frases["erro"], "alerta": None, "humor": "neutro", "modo": "erro"}
-        alerta = dados["alerta"]
+        alerta = None if modo == "aula" else dados["alerta"]
         if alerta and self.memoria.alerta_recente(idoso, minutos=60):
             alerta = None  # um aviso por assunto: não repete a cada mensagem
         self.memoria.guardar_turno(idoso, fala, dados["resposta"], dados["fatos_novos"], alerta)

@@ -17,6 +17,7 @@ from .memoria import Memoria  # noqa: E402
 from .voz import voz_do_ambiente  # noqa: E402
 from .dataset import Dataset, validar, EXERCICIOS  # noqa: E402
 from .modelo import avaliador_do_ambiente, avaliar  # noqa: E402
+from .contas import contas_do_ambiente  # noqa: E402
 
 app = FastAPI(title="VinaCare API", version="0.1.0")
 origens = [o.strip() for o in os.getenv("VINACARE_ORIGENS", "http://localhost:5173,https://leonardogmendoza.github.io").split(",") if o.strip()]
@@ -27,6 +28,12 @@ dataset = Dataset(os.getenv("VINACARE_DATA_DIR", "./data"))
 clara = Clara(oracle_do_ambiente(), memoria)
 voz = voz_do_ambiente(clara.chat)
 avaliador = avaliador_do_ambiente()
+try:
+    contas = contas_do_ambiente()
+except Exception as erro:  # noqa: BLE001  (sem banco a API continua no ar; só o login fica desligado)
+    import logging
+    logging.getLogger("vinacare").warning("Contas desligadas: %s: %s", type(erro).__name__, str(erro)[:200])
+    contas = None
 ID_OK = re.compile(r"^[a-zA-Z0-9_-]{1,40}$")
 _pedidos = defaultdict(deque)
 
@@ -46,6 +53,8 @@ VOZES = {  # vozes neurais da Azure por idioma
     "pt": {"Clara": "pt-BR-FranciscaNeural", "Rafael": "pt-BR-AntonioNeural"},
     "es": {"Clara": "es-PE-CamilaNeural", "Rafael": "es-PE-AlexNeural"},
     "en": {"Clara": "en-US-JennyNeural", "Rafael": "en-US-GuyNeural"},
+    # aula de inglês: vozes multilíngues (falam inglês e português/espanhol na mesma frase)
+    "aula": {"Clara": "en-US-AvaMultilingualNeural", "Rafael": "en-US-AndrewMultilingualNeural"},
 }
 
 
@@ -53,6 +62,7 @@ class TextoVoz(BaseModel):
     texto: str = Field(..., min_length=1, max_length=600)
     assistente: str = Field("Clara", max_length=20)
     idioma: str = Field("pt", max_length=5)
+    modo: str = Field("conversa", max_length=10)
 
 
 class Fala(BaseModel):
@@ -61,6 +71,7 @@ class Fala(BaseModel):
     texto: str = Field(..., min_length=1, max_length=500)
     assistente: str = Field("Clara", max_length=20)
     idioma: str = Field("pt", max_length=5)
+    modo: str = Field("conversa", max_length=10)
 
 
 def checar(idoso):
@@ -68,16 +79,66 @@ def checar(idoso):
         raise HTTPException(422, "Identificador inválido.")
 
 
+def usuario_logado(request: Request):
+    auth = request.headers.get("authorization", "")
+    token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+    return contas.usuario(token) if (contas and token) else None
+
+
+def checar_premium(request: Request):
+    u = usuario_logado(request)
+    if not u or not u["premium"]:
+        raise HTTPException(403, "Recurso premium.")
+    return u
+
+
+class Login(BaseModel):
+    email: str = Field(..., min_length=3, max_length=200)
+    senha: str = Field(..., min_length=1, max_length=200)
+
+
+@app.post("/api/login")
+def login(d: Login, request: Request):
+    limitar(request, maximo=5)          # protege contra quem tenta adivinhar senha
+    if contas is None:
+        raise HTTPException(503, "Login indisponível.")
+    r = contas.entrar(d.email, d.senha)
+    if r is None:
+        raise HTTPException(401, "E-mail ou senha incorretos.")
+    token, u = r
+    return {"token": token, "nome": u["nome"], "premium": u["premium"]}
+
+
+@app.get("/api/eu")
+def eu(request: Request):
+    u = usuario_logado(request)
+    if not u:
+        raise HTTPException(401, "Não conectado.")
+    return {"nome": u["nome"], "premium": u["premium"]}
+
+
+@app.post("/api/logout")
+def logout(request: Request):
+    auth = request.headers.get("authorization", "")
+    if contas and auth.lower().startswith("bearer "):
+        contas.sair(auth[7:].strip())
+    return {"ok": True}
+
+
 @app.get("/api/saude")
 def saude():
-    return {"ok": True, "modelo": avaliador is not None, "ia": clara.chat is not None, "voz": voz is not None}
+    return {"ok": True, "contas": contas is not None, "modelo": avaliador is not None, "ia": clara.chat is not None, "voz": voz is not None}
 
 
 @app.post("/api/conversa")
 def conversa(f: Fala, request: Request):
     limitar(request)
     checar(f.idoso)
-    return clara.conversar(f.idoso, f.nome, f.texto, f.assistente, f.idioma)
+    modo = "aula" if f.modo == "aula" else "conversa"
+    idoso = f.idoso
+    if modo == "aula":
+        idoso = f"u{checar_premium(request)['id']}"   # a aula acompanha a conta, em qualquer aparelho
+    return clara.conversar(idoso, f.nome, f.texto, f.assistente, f.idioma, modo)
 
 
 @app.get("/api/alertas/{idoso}")

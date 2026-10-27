@@ -61,6 +61,19 @@ class TestIA(unittest.TestCase):
             self.assertIn("AI", r["resposta"])
             mem.db.close()
 
+    def test_aula_de_ingles(self):
+        p = montar_prompt("", [], [], "I go to park yesterday", "Clara", "pt", "aula")
+        self.assertIn("professor(a) particular de INGLÊS", p)
+        self.assertIn("português do Brasil", p)
+        with tempfile.TemporaryDirectory() as d:
+            mem = Memoria(d)
+            falso = lambda prompt: '{"resposta": "Quase! Say: I went to the park.", "fatos_novos": ["inglês: passado de go"], "alerta": "x", "humor": "carinho"}'
+            r = Clara(falso, mem).conversar("p1", "", "I go to park yesterday", "Clara", "pt", "aula")
+            self.assertIsNone(r["alerta"])
+            self.assertEqual(mem.fatos("p1-aula"), ["inglês: passado de go"])
+            self.assertEqual(mem.fatos("p1"), [])
+            mem.db.close()
+
     def test_sem_ia(self):
         with tempfile.TemporaryDirectory() as d:
             mem = Memoria(d)

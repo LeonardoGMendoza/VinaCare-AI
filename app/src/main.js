@@ -15,17 +15,17 @@ const NOMES = { avaturn: 'Clara', avatarsdk: 'Rafael' };
 // Idiomas: reconhecimento de voz, voz do aparelho e frases da tela
 const IDIOMAS = {
   pt: { sigla: 'PT', rec: 'pt-BR', voz: /^pt/i, vozPref: /^pt[-_]br/i, html: 'pt-BR', t: {
-    tocar: 'Toque e fale', comecar: 'Toque para começar', ola: 'Oi, tudo bem? Como vai?', ouvindo: 'Estou ouvindo…', pensando: 'Pensando…', naoEntendi: 'Não entendi. Toque e fale de novo.',
+    tocar: 'Toque e fale', comecar: 'Toque para começar', ola: 'Oi, tudo bem? Como vai?', olaAula: 'Oi! Vamos praticar inglês. Let\'s start: how are you today?', tocarAula: 'Toque e fale em inglês', aula: 'Aula de inglês', entrar: 'Entrar', email: 'E-mail', senha: 'Senha', cancelar: 'Cancelar', loginTitulo: 'Aula de inglês (premium)', loginErro: 'E-mail ou senha incorretos.', semPremium: 'Esta conta não tem o plano premium.', loginFora: 'Login indisponível agora. Tente mais tarde.', ouvindo: 'Estou ouvindo…', pensando: 'Pensando…', naoEntendi: 'Não entendi. Toque e fale de novo.',
     micBloqueado: 'Libere o microfone no cadeado da barra de endereço.', semMic: 'Este navegador não ouve a voz. Use o Chrome ou o Safari.',
     carregando: 'Carregando…', erroAvatar: 'Não consegui carregar o avatar. Atualize a página.', erro3d: 'Este navegador não abriu o 3D. Use o Chrome ou o Safari atualizado.',
     semConexao: 'Estou sem conexão agora. Tente de novo daqui a pouco.', exercicios: 'Exercícios', idioma: 'Idioma', avatar: 'Trocar avatar', falar: 'Falar' } },
   es: { sigla: 'ES', rec: 'es-PE', voz: /^es/i, vozPref: /^es[-_](pe|419|us|mx)/i, html: 'es-PE', t: {
-    tocar: 'Toque y hable', comecar: 'Toque para empezar', ola: '¡Hola! ¿Cómo estás?', ouvindo: 'Le escucho…', pensando: 'Pensando…', naoEntendi: 'No entendí. Toque y hable otra vez.',
+    tocar: 'Toque y hable', comecar: 'Toque para empezar', ola: '¡Hola! ¿Cómo estás?', olaAula: '¡Hola! Vamos a practicar inglés. Let\'s start: how are you today?', tocarAula: 'Toque y hable en inglés', aula: 'Clase de inglés', entrar: 'Entrar', email: 'Correo', senha: 'Contraseña', cancelar: 'Cancelar', loginTitulo: 'Clase de inglés (premium)', loginErro: 'Correo o contraseña incorrectos.', semPremium: 'Esta cuenta no tiene el plan premium.', loginFora: 'Inicio de sesión no disponible. Intente más tarde.', ouvindo: 'Le escucho…', pensando: 'Pensando…', naoEntendi: 'No entendí. Toque y hable otra vez.',
     micBloqueado: 'Permita el micrófono en el candado de la barra de direcciones.', semMic: 'Este navegador no escucha la voz. Use Chrome o Safari.',
     carregando: 'Cargando…', erroAvatar: 'No pude cargar el avatar. Actualice la página.', erro3d: 'Este navegador no abrió el 3D. Use Chrome o Safari actualizado.',
     semConexao: 'Ahora no tengo conexión. Intente de nuevo en un momento.', exercicios: 'Ejercicios', idioma: 'Idioma', avatar: 'Cambiar avatar', falar: 'Hablar' } },
   en: { sigla: 'EN', rec: 'en-US', voz: /^en/i, vozPref: /^en[-_]us/i, html: 'en', t: {
-    tocar: 'Tap and speak', comecar: 'Tap to start', ola: 'Hi! How are you?', ouvindo: "I'm listening…", pensando: 'Thinking…', naoEntendi: "I didn't catch that. Tap and speak again.",
+    tocar: 'Tap and speak', comecar: 'Tap to start', ola: 'Hi! How are you?', olaAula: 'Hi! Let\'s practice English. How are you today?', tocarAula: 'Tap and speak English', aula: 'English class', entrar: 'Sign in', email: 'Email', senha: 'Password', cancelar: 'Cancel', loginTitulo: 'English class (premium)', loginErro: 'Wrong email or password.', semPremium: 'This account does not have the premium plan.', loginFora: 'Sign-in is unavailable now. Try again later.', ouvindo: "I'm listening…", pensando: 'Thinking…', naoEntendi: "I didn't catch that. Tap and speak again.",
     micBloqueado: 'Allow the microphone in the lock icon of the address bar.', semMic: "This browser can't hear voice. Use Chrome or Safari.",
     carregando: 'Loading…', erroAvatar: "I couldn't load the avatar. Refresh the page.", erro3d: "This browser couldn't open 3D. Use an updated Chrome or Safari.",
     semConexao: "I'm offline right now. Please try again in a moment.", exercicios: 'Exercises', idioma: 'Language', avatar: 'Change avatar', falar: 'Speak' } },
@@ -39,7 +39,12 @@ const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 let head = null, current = guarda.get('vina-avatar') === 'avatarsdk' ? 'avatarsdk' : 'avaturn', loading = false;
 let idioma = IDIOMAS[guarda.get('vina-idioma')] ? guarda.get('vina-idioma') : 'pt';
-let rec = null, ouvindo = false, ouvido = '', cumprimentou = false;
+let rec = null, ouvindo = false, ouvido = '', cumprimentou = false, aula = false;
+
+// Conta premium: login uma vez no aparelho; o token fica guardado e o servidor confere em cada aula.
+let premiumAtivo = false;
+const token = () => guarda.get('vina-token') || '';
+const recLang = () => aula ? 'en-US' : IDIOMAS[idioma].rec;
 const T = () => IDIOMAS[idioma].t;
 const assistente = () => NOMES[current] || 'Clara';
 let idoso = guarda.get('vina-id');
@@ -48,7 +53,7 @@ if (!idoso){ idoso = 'p' + Math.random().toString(36).slice(2, 12); guarda.set('
 const status = (t) => { $('status').hidden = !t; if (t) $('status').textContent = t; };
 function estado(e){                       // pronto | ouvindo | pensando | falando
   $('mic').dataset.estado = e;
-  $('dica').textContent = e === 'ouvindo' ? T().ouvindo : e === 'pensando' ? T().pensando : e === 'pronto' ? (cumprimentou ? T().tocar : T().comecar) : '';
+  $('dica').textContent = e === 'ouvindo' ? T().ouvindo : e === 'pensando' ? T().pensando : e === 'pronto' ? (!cumprimentou ? T().comecar : aula ? T().tocarAula : T().tocar) : '';
 }
 function aplicarIdioma(){
   document.documentElement.lang = IDIOMAS[idioma].html;
@@ -58,7 +63,8 @@ function aplicarIdioma(){
   $('linkExercicio').setAttribute('aria-label', T().exercicios);
   $('mic').setAttribute('aria-label', T().falar);
   $('palco').setAttribute('aria-label', T().tocar);
-  if (rec) rec.lang = IDIOMAS[idioma].rec;
+  $('modoAula').setAttribute('aria-label', T().aula);
+  if (rec) rec.lang = recLang();
   if ($('mic').dataset.estado === 'pronto') estado('pronto');
 }
 
@@ -121,7 +127,7 @@ const espera = (ms) => new Promise(r => setTimeout(r, ms));
 // Voz neural da nuvem (Azure pelo back-end): igual em qualquer celular, com a boca sincronizada.
 async function sayNuvem(text){
   const r = await fetch(API + '/api/voz', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ texto: text, assistente: assistente(), idioma }) });
+    body: JSON.stringify({ texto: text, assistente: assistente(), idioma: aula ? 'aula' : idioma }) });
   if (!r.ok) throw new Error('voz HTTP ' + r.status);
   const buf = await decodificar(head.audioCtx, await r.arrayBuffer());
   const tm = timings(text);
@@ -132,6 +138,7 @@ async function sayNuvem(text){
 let nuvemFalhou = false;
 const ehIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function precisaNuvem(){
+  if (aula) return true;   // a aula mistura inglês com a língua materna: só a voz multilíngue da nuvem faz bem
   if (ehIOS || !('speechSynthesis' in window)) return true;
   const v = melhorVoz();
   return !v || vozNota(v) < 100;
@@ -143,7 +150,7 @@ function sayAparelho(text){
   const startLips = () => head.speakAudio({ audio: silent, words: tm.words, wtimes: tm.wtimes, wdurations: tm.wdurations }, { lipsyncLang: 'pt_br' });
   if ('speechSynthesis' in window){
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = IDIOMAS[idioma].rec; u.rate = 0.92;
+    u.lang = aula ? 'en-US' : IDIOMAS[idioma].rec; u.rate = 0.92;
     const v = melhorVoz(); if (v) u.voice = v;
     let started = false;
     u.onstart = () => { if (!started){ started = true; startLips(); } };
@@ -175,8 +182,10 @@ async function voceDisse(text){
   estado('pensando');
   try {
     if (!API) throw new Error('sem API');
-    const r = await fetch(API + '/api/conversa', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idoso, nome: '', texto: text, assistente: assistente(), idioma }) });
+    const cab = { 'Content-Type': 'application/json' };
+    if (aula) cab['Authorization'] = 'Bearer ' + token();
+    const r = await fetch(API + '/api/conversa', { method: 'POST', headers: cab,
+      body: JSON.stringify({ idoso, nome: '', texto: text, assistente: assistente(), idioma: idioma === 'en' ? 'pt' : idioma, modo: aula ? 'aula' : 'conversa' }) });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
     humor(d.humor);
@@ -212,7 +221,7 @@ if (SR){
 async function cumprimentar(){
   cumprimentou = true;
   humor('feliz');
-  await say(T().ola);
+  await say(aula ? T().olaAula : T().ola);
 }
 function tocarParaFalar(){
   try { head && head.audioCtx.resume(); } catch {}
@@ -222,17 +231,64 @@ function tocarParaFalar(){
   if (ouvindo){ try { rec.stop(); } catch {} return; }
   if ('speechSynthesis' in window) speechSynthesis.cancel();
   try { head && head.stopSpeaking(); } catch {}
-  try { ouvido = ''; rec.lang = IDIOMAS[idioma].rec; rec.start(); ouvindo = true; estado('ouvindo'); }
+  try { ouvido = ''; rec.lang = recLang(); rec.start(); ouvindo = true; estado('ouvindo'); }
   catch { $('dica').textContent = T().naoEntendi; }
 }
 
 // Toque em qualquer lugar da tela (menos nos botões do topo) para falar
-$('palco').addEventListener('click', (ev) => { if (!ev.target.closest('.topo')) tocarParaFalar(); });
+$('palco').addEventListener('click', (ev) => { if (!ev.target.closest('.topo') && !ev.target.closest('.login')) tocarParaFalar(); });
 $('trocaIdioma').addEventListener('click', () => {
   idioma = ORDEM[(ORDEM.indexOf(idioma) + 1) % ORDEM.length];
   guarda.set('vina-idioma', idioma); aplicarIdioma();
   if (cumprimentou && !ouvindo) cumprimentar();   // cumprimenta de novo no idioma novo
 });
+// Aula de inglês (premium): todos veem o botão; só quem entra com conta premium usa.
+function ligarAula(on){
+  aula = on;
+  $('modoAula').setAttribute('aria-pressed', String(aula));
+  aplicarIdioma(); estado('pronto');
+  if (cumprimentou && !ouvindo) cumprimentar();
+}
+function abrirLogin(msg){
+  $('loginTitulo').textContent = T().loginTitulo;
+  $('loginEmailRot').textContent = T().email; $('loginSenhaRot').textContent = T().senha;
+  $('loginEntrar').textContent = T().entrar; $('loginCancelar').textContent = T().cancelar;
+  $('loginMsg').textContent = msg || '';
+  $('login').hidden = false;
+  setTimeout(() => $('loginEmail').focus(), 50);
+}
+const fecharLogin = () => { $('login').hidden = true; $('loginSenha').value = ''; };
+$('modoAula').addEventListener('click', () => {
+  if (premiumAtivo) ligarAula(!aula);
+  else abrirLogin();
+});
+$('loginCancelar').addEventListener('click', fecharLogin);
+$('loginForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  $('loginMsg').textContent = '…';
+  try {
+    const r = await fetch(API + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: $('loginEmail').value.trim(), senha: $('loginSenha').value }) });
+    if (r.status === 401){ $('loginMsg').textContent = T().loginErro; return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    guarda.set('vina-token', d.token);
+    premiumAtivo = !!d.premium;
+    if (!premiumAtivo){ $('loginMsg').textContent = T().semPremium; return; }
+    fecharLogin(); ligarAula(true);
+  } catch (e) {
+    console.warn(e); $('loginMsg').textContent = T().loginFora;
+  }
+});
+async function conferirConta(){
+  if (!API || !token()) return;
+  try {
+    const r = await fetch(API + '/api/eu', { headers: { 'Authorization': 'Bearer ' + token() } });
+    if (r.status === 401){ guarda.set('vina-token', ''); return; }
+    if (r.ok) premiumAtivo = !!(await r.json()).premium;
+  } catch {}
+}
+conferirConta();
 $('trocaAvatar').addEventListener('click', () => { if (!loading) load(current === 'avaturn' ? 'avatarsdk' : 'avaturn'); });
 
 aplicarIdioma();

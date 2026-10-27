@@ -7,3 +7,5 @@ oci>=2.150,<3
 numpy>=2,<3
 # Chamada HTTP assinada ao Model Deployment
 requests>=2.31,<3
+# Contas premium no PostgreSQL do servidor
+psycopg[binary]>=3.2,<4
